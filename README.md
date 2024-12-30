@@ -61,7 +61,7 @@ The BME688 code for reading temp/press/hum/VOC was adapted from the Adafruit dem
 The BME688 temperature reading may need calibration against an external thermometer.  The DEFINEd parameter 'BME_TEMP_OFFSET' can be used to perform an adjustment, if needed.
 
 ### Loop
-The loop() procedure samples the sensor (BME688), reformats the information into the 40-bit packet used by the Acurite 609TXC, creates an array of commands to drive the transmitter and delay the appropriate times, and then invokes AR609.playback() to actually drive the transmitter.  It then delays for the length of time defined by `#define DELAY`, in microseconds (must be less than 64K us!) before repeating the loop.
+The loop() procedure samples the sensor (BME688), reformats the information into the 40-bit packet used by the Acurite 609TXC, creates an array of commands to drive the transmitter and delay the appropriate times, and then invokes AR609.playback() to actually drive the transmitter.  It then delays for the length of time defined by `#define DELAY`, in microseconds (must be less than 64K µs!) before repeating the loop.
 
 ## Creating Other Devices
 To create another ISM device, you'll need to:
