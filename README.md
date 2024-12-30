@@ -63,6 +63,12 @@ The BME688 temperature reading may need calibration against an external thermome
 ### Loop
 The loop() procedure samples the sensor (BME688), reformats the information into the 40-bit packet used by the Acurite 609TXC, creates an array of commands to drive the transmitter and delay the appropriate times, and then invokes AR609.playback() to actually drive the transmitter.  It then delays for the length of time defined by `#define DELAY`, in microseconds (must be less than 64K us!) before repeating the loop.
 
+## Creating Other Devices
+To create another ISM device, you'll need to:
+*  Enumerate the types of signals and their delay durations: define those in `enum SIGNAL_T` and your device's equivalent of `AR609_signals[]`; 
+*  Write a function to reformat the data as it comes from the sensor object into the format expected by the device: the AR609 code `pack_AR609()` demonstrates how to do that; be sure to set the expected message data length, too;
+*  Write the procedure `.make_wave()` to create the array of signaling commands: again, `AR609()` demonstrates how to do that.
+
 ## Release History
 
 *  V1.0: First operational version, 2024.12.29
