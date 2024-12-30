@@ -46,7 +46,7 @@ Most ISM devices REPEAT the message 2-5 times per transmission to increase the p
 
 ## Program Structure
 
-When asserting/deasserting voltage to the signal pin, timing is critical.  The strategy of this program is to have the "playback" -- the setting of voltages at specific times to convey information -- be as simple as possible to minimize computer processing delays in the signal-setting timings.  So the program generates a "waveform" as a series of program commands to assert/deassert voltages and to delay the specified times to communicate information.  Those commands are entered into an array to represent the waveform.
+When asserting/deasserting voltage to the signal pin, timing is critical.  The strategy of this program is to have the "playback" -- the setting of voltages at specific times to convey information -- be as simple as possible to minimize computer processing delays in the signal-setting timings.  So the program generates a "waveform" as a series of program commands in an array to tell when to assert/deassert voltages and to delay the specified times to communicate information.  Those very simple commands in the array represent the waveform.
 
 The playback, then, just retrieves the commands to assert/deassert voltages or delay specific length of time, and then executes them, with minimal processing overhead.  The result is that the various timings, as reported by "rtl_433 -A", have very little variation within a transmission.
 
