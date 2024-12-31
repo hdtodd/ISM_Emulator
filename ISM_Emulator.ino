@@ -1,6 +1,6 @@
 /*
   AR609: Emulate an ISM-band remote sensor on an Arduinio Uno or Sparkfun SAMD21l
-  This version specifically emulated an Acurite 609TXC temperature/humidity
+  This version specifically emulate an Acurite 609TXC temperature/humidity
   sensor, but the program provides the basis for emulating other devices.
 
   This program uses a 433MHz transmitter to send temperature/humidity
@@ -71,8 +71,8 @@
 
 #define DEBUG         // SET TO #undef to disable execution trace
 
-#define DELAY 29327   // Time between messages in ms, less 673ms for overhead on SAMD21
-//#define DELAY 4600  // Time between messages in ms, less 673ms for overhead on SAMD21
+//#define DELAY 29350   // Time between messages in ms, less 650ms for overhead on SAMD21
+#define DELAY 4350  // Time between messages in ms, less 650ms for overhead on SAMD21
 
 #ifdef DEBUG
 #define DBG_begin(...)    SerialUSB.begin(__VA_ARGS__);
