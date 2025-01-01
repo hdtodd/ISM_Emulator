@@ -19,6 +19,7 @@ If your host microcontroller supports it, you might find the BME688 devices with
 	* Transmitter to VCC and ground and data pin to an Arduino GPIO pin (pin 4 in this example)
 	* USB connection from host to microcontroller for power and programming.
 * Download `ISM_Emulator` from http://github.com/hdtodd/ISM_Emulator
+* If you have a BME688, install the library for it in your IDE; if you're using a different type of sensor, install its library and modify the `ISM_Emulator.ino` code to replace the BME calls with the equivalent for your sensor.
 * Compile ISM_Emulator.ino and download into your Arduino
 * Monitor using `rtl_433`; enable MQTT publishing on the `rtl_433` host and monitor with an MQTT client or other tools such as `DNT` (http://github.com/hdtodd/DNT) or `rtl_watch` (http://github.com/hdtodd/rtl_watch).
 

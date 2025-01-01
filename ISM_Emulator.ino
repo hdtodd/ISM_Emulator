@@ -1,9 +1,10 @@
 /*
-  AR609: Emulate an ISM-band remote sensor on an Arduinio Uno or Sparkfun SAMD21l
-  This version specifically emulate an Acurite 609TXC temperature/humidity
-  sensor, but the program provides the basis for emulating other devices.
+  ISM_Emulator: Emulate an ISM-band remote sensor on an Arduinio Uno
+  This version specifically emulates an Acurite 609TXC temperature/humidity
+  sensor, but the program provides a class for emulating other devices.
 
-  This program uses a 433MHz transmitter to send temperature/humidity
+  This program uses a 433MHz transmitter and Arduino (or similar device
+  supported on the Arduino IDE) to send temperature/humidity
   readings using the Acurite 609TXC protocol.  See the device/acurite.c
   file in the rtl_433 distribution (https://github.com/merbanan/rtl_433)
   for details about the packet format.  The data packet format created
@@ -30,7 +31,8 @@
   Most ISM devices REPEAT the message 2-5 times to increase the
   possibility of correct reception (since this is a simplex
   communication system -- no indication that the information
-  was correctly received).
+  was correctly received).  This version repeats the packet
+  3 times per transmission.
 
   When asserting/deasserting voltage to the signal pin, timing
   is critical.  The strategy of this program is to have the
