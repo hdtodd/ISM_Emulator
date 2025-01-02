@@ -62,6 +62,45 @@
 #include <iomanip>
 using namespace std;
 
+#undef HAVE_SENSOR
+
+#ifdef HAVE_SENSOR
+#include <Adafruit_Sensor.h>
+#include "Adafruit_BME680.h"
+#else
+class SENSOR {
+public:
+
+  float temperature, humidity, pressure, gas_resistance;
+  
+  SENSOR() {
+  };
+
+  bool begin() {
+    return true;
+  };
+
+  void setTemperatureOversampling() {
+  };
+  void setHumidityOversampling() {
+  };
+  void setPressureOversampling() {
+  };
+  void setIIRFilterSize() {
+  };
+  void setGasHeater() {
+  };
+  
+  bool performReading() {
+    temperature =       20.0;
+    humidity    =       50.0;
+    pressure    =     1000.0;
+    gas_resistance  =   78.0;
+    return true;
+  };
+}; // end SENSOR
+#endif
+
 /*  "SIGNAL_T" are the possible signal durations..  This list may be
     extended with additional types in the future, but for the Acurite 609
     for which this code is the prototype, we use:
@@ -188,6 +227,26 @@ void pack_msg(uint8_t id, uint8_t status, int16_t temp,
   msg[4] = ( msg[0] + msg[1] + msg[2] + msg[3] ) & 0xff;
   return;
 };
+
+// Unpack <ID, Status, Temp, Humidity> from a 5-byte AR609 message with 1 checksum byte
+void unpack_msg(uint8_t *msg, uint8_t &I, uint8_t &S, int16_t &T, uint8_t &H) {
+  if (msg[4] != ( (msg[0]+msg[1]+msg[2]+msg[3])&0xff) ) {
+    cout << "Invalid message packet: Checksum error" << endl;
+    I = 0;
+    S = 0;
+    T = 0;
+    H = 0;
+    } 
+  else {
+    I = msg[0];
+    S = (msg[1]&0xf0) >> 4;
+    // Contortions needed to create signed 16-bit from unsigned 4-bit | 8-bit fields
+    T =  ( (int16_t) ( ( msg[1]&0x0f ) << 12 | ( msg[2]) << 4 ) ) >> 4; 
+    H = msg[3];
+    };
+  return;
+};
+
   
 // AR609 timing durations
 // Name, description, spec'd delay in us, place for adjusted duration
@@ -227,25 +286,6 @@ void make_wave(uint8_t *msg, uint8_t msgLen) {
   cmdList[listEnd].cmd = DONE;
 };
 };
-
-// Unpack <ID, Status, Temp, Humidity> from a 5-byte AR609 message with 1 checksum byte
-void unpack_609(uint8_t *msg, uint8_t &I, uint8_t &S, int16_t &T, uint8_t &H) {
-  if (msg[4] != ( (msg[0]+msg[1]+msg[2]+msg[3])&0xff) ) {
-    cout << "Invalid message packet: Checksum error" << endl;
-    I = 0;
-    S = 0;
-    T = 0;
-    H = 0;
-    } 
-  else {
-    I = msg[0];
-    S = (msg[1]&0xf0) >> 4;
-    // Contortions needed to create signed 16-bit from unsigned 4-bit | 8-bit fields
-    T =  ( (int16_t) ( ( msg[1]&0x0f ) << 12 | ( msg[2]) << 4 ) ) >> 4; 
-    H = msg[3];
-    };
-  return;
-};
  
 int main() {
   // In the absence of a real sensor provide values needed
@@ -254,6 +294,8 @@ int main() {
   uint8_t status =   1;
   int16_t temp =    20;
   uint8_t hum =     50;
+  uint8_t i, s, h;
+  int16_t t;
 
   // AR609 messages are 40 bits = 5 bytes
   uint8_t msg[5];
@@ -263,14 +305,31 @@ int main() {
   cout << "Create 'ar' as an AR609" << endl;
   AR609 ar;
 
-  cout << "\nNow create the wave for 'ar' and play it back as pulse cycles" << endl;
+  cout << "\nNow create a wave for 'ar'" << endl;
   ar.pack_msg(id, status, temp, hum, msg);
   cout << "Device ar message in hex: 0x ";
+  ar.unpack_msg(msg, i, s, t, h);
   for (int i=0; i<5; i++)
     cout << setw(2) << setfill('0') << hex << (int) msg[i] << " ";
   cout << dec << setfill(' ') << endl;
+  cout << "Message values: id = " << (int) i << "; status = " << (int) s
+       << "; temp = " << (int) t << "; humidity = " << (int) h << endl;
   ar.make_wave(msg, msgLen);
 
+  temp = 25;
+  hum  = 70;
+
+  cout << "\nCreate another wave for 'ar' and play it back as pulse cycles" << endl;
+  ar.pack_msg(id, status, temp, hum, msg);
+  cout << "Device ar message in hex: 0x ";
+  ar.unpack_msg(msg, i, s, t, h);
+  for (int i=0; i<5; i++)
+    cout << setw(2) << setfill('0') << hex << (int) msg[i] << " ";
+  cout << dec << setfill(' ') << endl;
+  cout << "Message values: id = " << (int) i << "; status = " << (int) s
+       << "; temp = " << (int) t << "; humidity = " << (int) h << endl;
+  ar.make_wave(msg, msgLen);
+  
   cout << "\nPlay back ar" << endl;
   ar.playback();
 
