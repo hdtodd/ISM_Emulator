@@ -119,7 +119,7 @@ public:
 // Append additional signal timings here and then initialize them
 // in the device initiation of the "signals" array
 // Maintain the order here in the initialization code in the device class
-enum SIGNAL_T {SIG_DATA=-2,NONE=-1,SIG_PULSE=0, SIG_SYNC, SIG_SYNC_GAP,
+enum SIGNAL_T {NONE=-1,SIG_PULSE=0, SIG_SYNC, SIG_SYNC_GAP,
 	       SIG_ZERO, SIG_ONE, SIG_IM_GAP};
 
 // Structure of the table of timing durations used to signal
@@ -163,26 +163,15 @@ public:
   ISM_Device() {
   };
 
-  // Inserts a signal into the commmand list of type indicated by "signal"
-  // If the signal is a data bit (SIG_DATA), "bit" indicates if it is to be
-  // a zero (bit==0) or one (bit!=0); if not data, "bit" is ignored.
-  // "signal" may be just a SIG_PULSE (up/down voltage) with no specified
-  // delay afterward.
-  void insert(SIGNAL_T signal, uint8_t bit) {
-    cmdList[listEnd++] = {ASSERT,NONE};
-    cmdList[listEnd++] = {WAIT,SIG_PULSE};
-    cmdList[listEnd++] = {DEASSERT,NONE};
-
-    // If we just wanted a pulse, we're done
-    if (signal == SIG_PULSE) return;
-
-    // Otherwise, insert the called-for delay
-    if (signal == SIG_DATA)
-      cmdList[listEnd++] = {WAIT,(bit == 0) ? SIG_ZERO : SIG_ONE};
-    else
-      cmdList[listEnd++] = {WAIT,signal};
+  // Inserts a signal into the commmand list
+  // Assert for "on" time, then deassert for "off" time
+  void insert(SIGNAL_T on, SIGNAL_T off) {
+    cmdList[listEnd++] = {ASSERT,   on};
+    cmdList[listEnd++] = {DEASSERT, off};
+    return;
   };
 
+  // Plays back the signaling commands in the device's cmdList[]
   void playback() {
     SIGNAL_T this_sig;
     cout << "\nFor device " << Device_Name << " the wave generated is:" << endl;
@@ -192,14 +181,18 @@ public:
            << setw(2) << right << (int) cmdList[i].cmd;
       switch (cmdList[i].cmd) {
         case WAIT:
-	  cout << "\tWAIT" << setw(6) << right << signals[this_sig].delay_us
+	  cout << setw(9) << "WAIT" << setw(6) << right << signals[this_sig].delay_us
 	       << "\t" << signals[this_sig].sig_name;
 	  break;
 	case ASSERT:
-	  cout << "\tASSERT";
+	  cout << setw(9) << "ASSERT";
+	  cout << "\tWAIT" << setw(6) << right << signals[this_sig].delay_us
+	       << "\t" << signals[this_sig].sig_name;
 	  break;
 	case DEASSERT:
-	  cout << "\tDEASSERT";
+	  cout << setw(9) << "DEASSERT";
+	  cout << "\tWAIT" << setw(6) << right << signals[this_sig].delay_us
+	       << "\t" << signals[this_sig].sig_name;
 	  break;
 	default:
         case DONE:   // Terminates list but should never be executed
@@ -271,18 +264,21 @@ AR609() {
 void make_wave(uint8_t *msg, uint8_t msgLen) {
   listEnd = 0;
   // Preamble
-  insert(SIG_SYNC,0);
-  insert(SIG_SYNC,0);
-  insert(SIG_SYNC_GAP,0);
+  insert(SIG_PULSE,SIG_SYNC_GAP);
+  insert(SIG_PULSE,SIG_SYNC_GAP);
+  insert(SIG_PULSE,SIG_SYNC);
   cout << "The msg packet, length=" << (int) msgLen << ", as a series of bits: ";
   // The data packet
   for (int i=0; i<msgLen; i++) {
-    insert(SIG_DATA, (uint8_t) ((msg[i/8]>>(7-(i%8))) & 0x01 ) );
+    insert(SIG_PULSE,
+	   ( (uint8_t) ((msg[i/8]>>(7-(i%8))) & 0x01 ) ) == 0 ? SIG_ZERO : SIG_ONE );
+    
     cout << setw(1) << ((msg[i/8]>>(7-(i%8)))&0x01);
   };
   cout << endl;
   // Postamble and terminal marker for safety
-  insert(SIG_IM_GAP,0);
+  insert(SIG_PULSE,
+	 SIG_IM_GAP);
   cmdList[listEnd].cmd = DONE;
 };
 };
