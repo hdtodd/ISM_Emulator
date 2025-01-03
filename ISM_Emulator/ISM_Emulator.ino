@@ -72,8 +72,8 @@
 
 #define DEBUG         // SET TO #undef to disable execution trace
 
-//#define DELAY 29350   // Time between messages in ms, less 650ms for overhead on SAMD21
-#define DELAY 4350  // Time between messages in ms, less 650ms for overhead on SAMD21
+#define DELAY 29350   // Time between messages in ms, less 650ms for overhead on SAMD21
+//#define DELAY 4350  // Time between messages in ms, less 650ms for overhead on SAMD21
 
 #ifdef DEBUG
 #define DBG_begin(...)    SerialUSB.begin(__VA_ARGS__);
@@ -122,25 +122,11 @@ void hex_print(uint8_t *buf, int len) {
   return;
 };
 
-/*  "SIGNAL_T" are the possible signal durations..  This list may be
-    extended with additional types in the future, but for the Acurite 609
-    for which this code is the prototype, we use:
-      SIG_PULSE:     the duration of the "pulse" assert voltage level
-      SIG_SYNC:      the duration of the "sync" deassert voltage level
-      SIG_SYNC_GAP:  the duration of the "sync_gap" deassert before data bits
-      SIG_ZERO:      the duration of the deassert gap after a pulse
-                     that signifies a "0" data bit
-      SIG_ONE:       the duration of the deassert gap after a pulse
-                     that signifies a "1" data bit
-      SIG_IM_GAP:    the duration of the deassert for the
-                     inter-message gap, between transmissions
-*/
-
 // Enumerate the possible signal duration types here for use as indices
 // Append additional signal timings here and then initialize them
 // in the device initiation of the "signals" array
 // Maintain the order here in the initialization code in the device class
-enum SIGNAL_T {SIG_DATA=-2,NONE=-1,SIG_PULSE=0, SIG_SYNC, SIG_SYNC_GAP,
+enum SIGNAL_T {NONE=-1,SIG_PULSE=0, SIG_SYNC, SIG_SYNC_GAP,
 	       SIG_ZERO, SIG_ONE, SIG_IM_GAP};
 
 // Structure of the table of timing durations used to signal
@@ -182,24 +168,12 @@ public:
   ISM_Device() {
   };
 
-  // Inserts a signal into the commmand list of type indicated by "signal"
-  // If the signal is a data bit (SIG_DATA), "bit" indicates if it is to be
-  // a zero (bit==0) or one (bit!=0); if not data, "bit" is ignored.
-  // "signal" may be just a SIG_PULSE (up/down voltage) with no specified
-  // delay afterward.
-  void insert(SIGNAL_T signal, uint8_t bit) {
-    cmdList[listEnd++] = {ASSERT,NONE};
-    cmdList[listEnd++] = {WAIT,SIG_PULSE};
-    cmdList[listEnd++] = {DEASSERT,NONE};
-
-    // If we just wanted a pulse, we're done
-    if (signal == SIG_PULSE) return;
-
-    // Otherwise, insert the called-for delay
-    if (signal == SIG_DATA)
-      cmdList[listEnd++] = {WAIT,(bit == 0) ? SIG_ZERO : SIG_ONE};
-    else
-      cmdList[listEnd++] = {WAIT,signal};
+  // Inserts a signal into the commmand list
+  // Assert for "on" time, then deassert for "off" time
+  void insert(SIGNAL_T on, SIGNAL_T off) {
+    cmdList[listEnd++] = {ASSERT,   on};
+    cmdList[listEnd++] = {DEASSERT, off};
+    return;
   };
 
   void playback() {
@@ -212,12 +186,14 @@ public:
 	  break;
 	case ASSERT:
 	  digitalWrite(TX,Hi);
+	  delayMicroseconds(signals[this_sig].delay_us);
 	  break;
 	case DEASSERT:
 	  digitalWrite(TX,Lo);
+	  delayMicroseconds(signals[this_sig].delay_us);
 	  break;
 	default:
-        case DONE:   // Terminates list but should never be executed
+  case DONE:   // Terminates list but should never be executed
 	  DBG_print(" \tERROR -- invalid command: "); DBG_print( (int) cmdList[i].cmd );
 	  DBG_print( (cmdList[i].cmd == DONE) ? " (DONE)" : "" );
 	  break;
@@ -232,6 +208,19 @@ class AR609 : public ISM_Device {
   // AR609 timing durations
   // Name, description, spec'd delay in us
   int sigLen = 6;
+/*  "SIGNAL_T" are the possible signal durations..  This list may be
+    extended with additional types in the future, but for the Acurite 609
+    for which this code is the prototype, we use:
+      SIG_PULSE:     the duration of the "pulse" assert voltage level
+      SIG_SYNC:      the duration of the "sync" deassert voltage level
+      SIG_SYNC_GAP:  the duration of the "sync_gap" deassert before data bits
+      SIG_ZERO:      the duration of the deassert gap after a pulse
+                     that signifies a "0" data bit
+      SIG_ONE:       the duration of the deassert gap after a pulse
+                     that signifies a "1" data bit
+      SIG_IM_GAP:    the duration of the deassert for the
+                     inter-message gap, between transmissions
+*/
   SIGNAL AR609_signals[6] = {
     {SIG_PULSE,    "Pulse",      512},
     {SIG_SYNC,     "Sync",      8940},
@@ -248,7 +237,7 @@ class AR609 : public ISM_Device {
     DBG_print("Created device "); DBG_println(Device_Name);
   };
 
-// Routines to create 40-bit AR609 datagrams
+// Routine to create 40-bit AR609 datagrams
 // Pack <ID, Status, Temp, Humidity> into a 5-byte AR609 message with 1 checksum byte
 void pack_msg(uint8_t I, uint8_t S, int16_t T, uint8_t H, uint8_t *msg) {
   msg[0] = ( I&0xff );
@@ -281,21 +270,22 @@ void unpack_msg(uint8_t *msg, uint8_t &I, uint8_t &S, int16_t &T, uint8_t &H) {
   void make_wave(uint8_t *msg, uint8_t msgLen) {
     listEnd = 0;
     // Preamble
-    insert(SIG_SYNC_GAP,0);
-    insert(SIG_SYNC_GAP,0);
-    insert(SIG_SYNC,0);
+    insert(SIG_PULSE,SIG_SYNC_GAP);
+    insert(SIG_PULSE,SIG_SYNC_GAP);
+    insert(SIG_PULSE,SIG_SYNC);
     DBG_print("The msg packet, length="); DBG_print( (int)msgLen);
     DBG_print(", as a series of bits: ");
 
     // The data packet
     for (int i=0; i<msgLen; i++) {
-      insert(SIG_DATA, (uint8_t) ((msg[i/8]>>(7-(i%8))) & 0x01 ) );
+      insert(SIG_PULSE,
+ 	    ( (uint8_t) ((msg[i/8]>>(7-(i%8))) & 0x01 ) ) == 0 ? SIG_ZERO : SIG_ONE );
       DBG_print(((msg[i/8]>>(7-(i%8)))&0x01));
     };
     DBG_println();
 
     // Postamble and terminal marker for safety
-    insert(SIG_IM_GAP,0);
+    insert(SIG_PULSE, SIG_IM_GAP);
     cmdList[listEnd].cmd = DONE;
   };
 };
