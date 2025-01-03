@@ -73,8 +73,8 @@
 
 #define DEBUG         // SET TO #undef to disable execution trace
 
-#define DELAY 29350   // Time between messages in ms, less 650ms for overhead on SAMD21
-//#define DELAY 4350  // Time between messages in ms, less 650ms for overhead on SAMD21
+//#define DELAY 29350   // Time between messages in ms, less 650ms for overhead on SAMD21
+#define DELAY 4350  // Time between messages in ms, less 650ms for overhead on SAMD21
 
 #ifdef DEBUG
 #define DBG_begin(...)    SerialUSB.begin(__VA_ARGS__);
