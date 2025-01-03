@@ -193,14 +193,14 @@ public:
 	  delayMicroseconds(signals[this_sig].delay_us);
 	  break;
 	default:
-  case DONE:   // Terminates list but should never be executed
+        case DONE:   // Terminates list but should never be executed
 	  DBG_print(" \tERROR -- invalid command: "); DBG_print( (int) cmdList[i].cmd );
 	  DBG_print( (cmdList[i].cmd == DONE) ? " (DONE)" : "" );
 	  break;
       };
     };
-  };
-};
+  };  // end playback()
+};    // end class ISM_device
     
 class AR609 : public ISM_Device {
   public:
@@ -237,46 +237,47 @@ class AR609 : public ISM_Device {
     DBG_print("Created device "); DBG_println(Device_Name);
   };
 
-// Routine to create 40-bit AR609 datagrams
-// Pack <ID, Status, Temp, Humidity> into a 5-byte AR609 message with 1 checksum byte
-void pack_msg(uint8_t I, uint8_t S, int16_t T, uint8_t H, uint8_t *msg) {
-  msg[0] = ( I&0xff );
-  msg[1] = ( (S&0x0f)<<4 | (T>>8)&0x0f );
-  msg[2] = ( T&0xff );
-  msg[3] = ( H&0xff ); 
-  msg[4] = ( msg[0] + msg[1] + msg[2] + msg[3] ) & 0xff;
-  return;
-  };
+  // Routine to create 40-bit AR609 datagrams
+  // Pack <ID, Status, Temp, Humidity> into a 5-byte AR609 message with 1 checksum byte
+  void pack_msg(uint8_t I, uint8_t S, int16_t T, uint8_t H, uint8_t *msg) {
+    msg[0] = ( I&0xff );
+    msg[1] = ( (S&0x0f)<<4 | (T>>8)&0x0f );
+    msg[2] = ( T&0xff );
+    msg[3] = ( H&0xff ); 
+    msg[4] = ( msg[0] + msg[1] + msg[2] + msg[3] ) & 0xff;
+    return;
+    };  // end pack_msg()
 
-// Unpack <ID, Status, Temp, Humidity> from a 5-byte AR609 message with 1 checksum byte
-void unpack_msg(uint8_t *msg, uint8_t &I, uint8_t &S, int16_t &T, uint8_t &H) {
-  if (msg[4] != ( (msg[0]+msg[1]+msg[2]+msg[3])&0xff) ) {
-    DBG_println("Invalid message packet: Checksum error");
-    I = 0;
-    S = 0;
-    T = 0;
-    H = 0;
-    } 
-  else {
-    I = msg[0];
-    S = (msg[1]&0xf0) >> 4;
-    // Contortions needed to create signed 16-bit from unsigned 4-bit | 8-bit fields
-    T =  ( (int16_t) ( ( msg[1]&0x0f ) << 12 | ( msg[2]) << 4 ) ) >> 4; 
-    H = msg[3];
-    };
-  return;
-};
+  // unpack_msg <ID, Status, Temp, Humidity> from a 5-byte AR609 message with 1 checksum byte
+  void unpack_msg(uint8_t *msg, uint8_t &I, uint8_t &S, int16_t &T, uint8_t &H) {
+    if (msg[4] != ( (msg[0]+msg[1]+msg[2]+msg[3])&0xff) ) {
+      DBG_println("Invalid message packet: Checksum error");
+      I = 0;
+      S = 0;
+      T = 0;
+      H = 0;
+      } 
+    else {
+      I = msg[0];
+      S = (msg[1]&0xf0) >> 4;
+      // Contortions needed to create signed 16-bit from unsigned 4-bit | 8-bit fields
+      T =  ( (int16_t) ( ( msg[1]&0x0f ) << 12 | ( msg[2]) << 4 ) ) >> 4; 
+      H = msg[3];
+      };
+    return;
+  };  // end unpack_msg()
 
+  // This creates the Acurite 609THC waveform description
   void make_wave(uint8_t *msg, uint8_t msgLen) {
     listEnd = 0;
     // Preamble
     insert(SIG_PULSE,SIG_SYNC_GAP);
     insert(SIG_PULSE,SIG_SYNC_GAP);
     insert(SIG_PULSE,SIG_SYNC);
-    DBG_print("The msg packet, length="); DBG_print( (int)msgLen);
-    DBG_print(", as a series of bits: ");
 
     // The data packet
+    DBG_print("The msg packet, length="); DBG_print( (int)msgLen);
+    DBG_print(", as a series of bits: ");
     for (int i=0; i<msgLen; i++) {
       insert(SIG_PULSE,
  	    ( (uint8_t) ((msg[i/8]>>(7-(i%8))) & 0x01 ) ) == 0 ? SIG_ZERO : SIG_ONE );
