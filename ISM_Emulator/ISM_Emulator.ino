@@ -1,11 +1,11 @@
-/*
+/* -*- c++ -*-
   ISM_Emulator: Emulate an ISM-band remote sensor on an Arduinio Uno
   This version specifically emulates an Acurite 609TXC temperature/humidity
   sensor, but the program provides a class for emulating other devices.
 
   This program uses a 433MHz transmitter and Arduino (or similar device
   supported on the Arduino IDE) to send temperature/humidity
-  readings using the Acurite 609TXC protocol.  See the device/acurite.c
+  readings using the Acurite 609TXC protocol.  See the src/device/acurite.c
   file in the rtl_433 distribution (https://github.com/merbanan/rtl_433)
   for details about the packet format.  The data packet format created
   here matches the format recognized by rtl_433 for the Acurite 609TXC.
@@ -61,12 +61,11 @@
   variables, and procedures that can be inherited and expanded to
   emulate specific devices.
 
-  The BME688 code for reading temp/press/hum/VOC was adapted from
+  The BME68x code for reading temp/press/hum/VOC was adapted from
   the Adafruit demo program http://www.adafruit.com/products/3660
-  The BME688 temperature reading may need calibration against
+  The BME68x temperature reading may need calibration against
   an external thermometer.  The DEFINEd parameter 'BME_TEMP_OFFSET'
   (below) can be used to perform an adjustment, if needed.
-
 
   hdtodd@gmail.com, 2024.12.29
 */
@@ -111,36 +110,6 @@
 
 int Hi, Lo;		  // voltages for pulses (may be inverted)
 
-// Routines to create 40-bit AR609 datagrams
-// Pack <ID, Status, Temp, Humidity> into a 5-byte AR609 message with 1 checksum byte
-void pack_AR609(uint8_t I, uint8_t S, int16_t T, uint8_t H, uint8_t *msg) {
-  msg[0] = ( I&0xff );
-  msg[1] = ( (S&0x0f)<<4 | (T>>8)&0x0f );
-  msg[2] = ( T&0xff );
-  msg[3] = ( H&0xff ); 
-  msg[4] = ( msg[0] + msg[1] + msg[2] + msg[3] ) & 0xff;
-  return;
-  };
-
-// Unpack <ID, Status, Temp, Humidity> from a 5-byte AR609 message with 1 checksum byte
-void unpack_609(uint8_t *msg, uint8_t &I, uint8_t &S, int16_t &T, uint8_t &H) {
-  if (msg[4] != ( (msg[0]+msg[1]+msg[2]+msg[3])&0xff) ) {
-    DBG_println("Invalid message packet: Checksum error");
-    I = 0;
-    S = 0;
-    T = 0;
-    H = 0;
-    } 
-  else {
-    I = msg[0];
-    S = (msg[1]&0xf0) >> 4;
-    // Contortions needed to create signed 16-bit from unsigned 4-bit | 8-bit fields
-    T =  ( (int16_t) ( ( msg[1]&0x0f ) << 12 | ( msg[2]) << 4 ) ) >> 4; 
-    H = msg[3];
-    };
-  return;
-};
-
 // Print in 2-char hex the message in "buf" of length "len"                                                                        
 void hex_print(uint8_t *buf, int len) {
   static const char CH[] = {'0', '1', '2', '3', '4', '5', '6', '7',
@@ -178,8 +147,7 @@ enum SIGNAL_T {SIG_DATA=-2,NONE=-1,SIG_PULSE=0, SIG_SYNC, SIG_SYNC_GAP,
 typedef struct {
   SIGNAL_T   sig_type ;   // Index the type of signal
   String     sig_name;    // Provide a brief descriptive name
-  uint16_t   target_us;   // The formally-specified duration in microseconds
-  uint16_t   delay_us;    // The scaled duration time, if scaling is invoked
+  uint16_t   delay_us;    // The formally-specified duration in microseconds
 } SIGNAL;
 
 // Types of commands in the device action list
@@ -262,27 +230,53 @@ class AR609 : public ISM_Device {
   public:
 
   // AR609 timing durations
-  // Name, description, spec'd delay in us, place for adjusted duration
+  // Name, description, spec'd delay in us
   int sigLen = 6;
   SIGNAL AR609_signals[6] = {
-    {SIG_PULSE,    "Pulse",      512, 0},
-    {SIG_SYNC,     "Sync",      8940, 0},
-    {SIG_SYNC_GAP, "Sync-gap",   480, 0},
-    {SIG_ZERO,     "Zero",       990, 0},
-    {SIG_ONE,      "One",       1984, 0},
-    {SIG_IM_GAP,   "IM_gap",    6000, 0}
+    {SIG_PULSE,    "Pulse",      512},
+    {SIG_SYNC,     "Sync",      8940},
+    {SIG_SYNC_GAP, "Sync-gap",   480},
+    {SIG_ZERO,     "Zero",       990},
+    {SIG_ONE,      "One",       1984},
+    {SIG_IM_GAP,   "IM_gap",    6000}
   };
 
   // Instantiate the device by linking 'signals' to our device timing
-  // and copy the target timings to the applied delay timings, for now
   AR609() {
     Device_Name = "Acurite 609TXC";
     signals = AR609_signals;
-    for (int i=0; i<sigLen; i++) {
-      signals[i].delay_us = signals[i].target_us;
-    };
     DBG_print("Created device "); DBG_println(Device_Name);
   };
+
+// Routines to create 40-bit AR609 datagrams
+// Pack <ID, Status, Temp, Humidity> into a 5-byte AR609 message with 1 checksum byte
+void pack_msg(uint8_t I, uint8_t S, int16_t T, uint8_t H, uint8_t *msg) {
+  msg[0] = ( I&0xff );
+  msg[1] = ( (S&0x0f)<<4 | (T>>8)&0x0f );
+  msg[2] = ( T&0xff );
+  msg[3] = ( H&0xff ); 
+  msg[4] = ( msg[0] + msg[1] + msg[2] + msg[3] ) & 0xff;
+  return;
+  };
+
+// Unpack <ID, Status, Temp, Humidity> from a 5-byte AR609 message with 1 checksum byte
+void unpack_msg(uint8_t *msg, uint8_t &I, uint8_t &S, int16_t &T, uint8_t &H) {
+  if (msg[4] != ( (msg[0]+msg[1]+msg[2]+msg[3])&0xff) ) {
+    DBG_println("Invalid message packet: Checksum error");
+    I = 0;
+    S = 0;
+    T = 0;
+    H = 0;
+    } 
+  else {
+    I = msg[0];
+    S = (msg[1]&0xf0) >> 4;
+    // Contortions needed to create signed 16-bit from unsigned 4-bit | 8-bit fields
+    T =  ( (int16_t) ( ( msg[1]&0x0f ) << 12 | ( msg[2]) << 4 ) ) >> 4; 
+    H = msg[3];
+    };
+  return;
+};
 
   void make_wave(uint8_t *msg, uint8_t msgLen) {
     listEnd = 0;
@@ -359,7 +353,7 @@ void loop(void) {
   HUM = (uint8_t) (bme.humidity+0.5);              // round 
   PRESS = (uint16_t) (bme.pressure / 10.0);        // hPa * 10
   VOC = (uint16_t) (bme.gas_resistance/1000.0) ;   //KOhms
-  pack_AR609(ID, ST, TEMP, HUM, msg);
+  ar.pack_msg(ID, ST, TEMP, HUM, msg);
   ar.make_wave(msg,AR609Len);
   
   // Set up for transmission
