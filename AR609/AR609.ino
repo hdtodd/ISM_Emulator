@@ -1,4 +1,6 @@
 /* -*- c++ -*-
+  AR609 Emulator using revised signal timing table
+  
   ISM_Emulator: Emulate an ISM-band remote sensor on an Arduinio Uno
   This version specifically emulates an Acurite 609TXC temperature/humidity
   sensor, but the program provides a class for emulating other devices.
@@ -11,10 +13,9 @@
   here matches the format recognized by rtl_433 for the Acurite 609TXC.
 
   The message is pulse-width modulated, on-off-keying at 433.92MHz.
-  Format is 2 pulses followed by sync-gap; pulse followed by sync;
-  40-bit message (short = 0, long =1), final pulse follow by interval gap.
-  The device class AR609 function .make_wave() shows how the
-  waveform for any OOK/PWM device can be quickly specified for emulation.
+  Waveform format is 2 sync pulses followed by a sync-gap pulse, 
+  40-bit string of message 0/1 data bits, and final pulse followed
+  by aninterval gap.
 
   The transmitted waveform is a series of up/down voltages (cycles) that
   turn the ISM transmitter on/off (OOK) followed by timing gaps of
@@ -45,7 +46,7 @@
   an array to represent the waveform.
 
   The playback, then, just retrieves the commands to assert/deassert
-  voltages or delay specific length of time, and then executes them,
+  voltages and delay specific length of time, and then executes them,
   with minimal processing overhead.  The result is that the various
   timings, as reported by "rtl_433 -A", have very little variation
   within a transmission.
@@ -57,9 +58,10 @@
   environments -- it just generates the waveform description which a subsequent
   code module uses to drive the transmitter voltages.
   
-  The code here provides a base CLASS containing structure definitions,
+  The code here provides a base class containing structure definitions,
   variables, and procedures that can be inherited and expanded to
-  emulate specific devices.
+  emulate specific device and then implements a specific device, the
+  Acurite 609TXC.
 
   The BME68x code for reading temp/press/hum/VOC was adapted from
   the Adafruit demo program http://www.adafruit.com/products/3660
@@ -70,10 +72,10 @@
   hdtodd@gmail.com, 2024.12.29
 */
 
-#define DEBUG         // SET TO #undef to disable execution trace
+#define DEBUG           // SET TO #undef to disable execution trace
 
-#define DELAY 29350   // Time between messages in ms, less 650ms for overhead on SAMD21
-//#define DELAY 4350  // Time between messages in ms, less 650ms for overhead on SAMD21
+//#define DELAY 29350   // Time between messages in ms, less 650ms for overhead on SAMD21
+#define DELAY 4350    // Time between messages in ms, less 650ms for overhead on SAMD21
 
 #ifdef DEBUG
 #define DBG_begin(...)    SerialUSB.begin(__VA_ARGS__);
@@ -108,8 +110,6 @@
 #define SEALEVELPRESSURE_HPA (1013.25)    // Standard conversion constant
 #define BME_TEMP_OFFSET (-1.7/1.8)        // Calibration offset in Fahrenheit
 
-int Hi, Lo;		  // voltages for pulses (may be inverted)
-
 // Print in 2-char hex the message in "buf" of length "len"                                                                        
 void hex_print(uint8_t *buf, int len) {
   static const char CH[] = {'0', '1', '2', '3', '4', '5', '6', '7',
@@ -122,45 +122,55 @@ void hex_print(uint8_t *buf, int len) {
   return;
 };
 
-// Enumerate the possible signal duration types here for use as indices
-// Append additional signal timings here and then initialize them
-// in the device initiation of the "signals" array
-// Maintain the order here in the initialization code in the device class
-enum SIGNAL_T {NONE=-1,SIG_PULSE=0, SIG_SYNC, SIG_SYNC_GAP,
-	       SIG_ZERO, SIG_ONE, SIG_IM_GAP};
+/*
+    "SIGNAL_T" enumerates the possible signal types.  Each signal has a
+    type (index), name, duration of asserted signal high), and duration of
+    deasserted signal (low).  Durations are in microseconds.  Either or
+    both duration may be 0, in which case the signal voltge won't be changed.
+
+    This list may be extended with additional types in the future, but for
+    the Acurite 609 for which this code is the prototype, we use:
+      SIG_SYNC:      the duration of the "sync" deassert voltage level
+      SIG_SYNC_GAP:  the duration of the "sync_gap" deassert before data bits
+      SIG_ZERO:      the duration of the deassert gap after a pulse
+                     that signifies a "0" data bit
+      SIG_ONE:       the duration of the deassert gap after a pulse
+                     that signifies a "1" data bit
+      SIG_IM_GAP:    the duration of the deassert for the
+                     inter-message gap, between transmissions
+      SIG_PULSE:     the duration of the "pulse" assert voltage level
+                     (spare, as a future contingency)
+
+    Enumerate the possible signal duration types here for use as indices
+    Append additional signal timings here and then initialize them
+    in the device initiation of the "signals" array
+    Maintain the order here in the initialization code in the device class
+*/
+enum SIGNAL_T {NONE=-1, SIG_SYNC=0, SIG_SYNC_GAP, SIG_ZERO, SIG_ONE,
+	       SIG_IM_GAP, SIG_PULSE};
 
 // Structure of the table of timing durations used to signal
 typedef struct {
-  SIGNAL_T   sig_type ;   // Index the type of signal
+  SIGNAL_T   sig_type;    // Index the type of signal
   String     sig_name;    // Provide a brief descriptive name
-  uint16_t   delay_us;    // The formally-specified duration in microseconds
+  uint16_t   up_time;     // duration for pulse with voltage up
+  uint16_t   delay_time;  // delay with voltage down before next signal
 } SIGNAL;
 
-// Types of commands in the device action list
-// WAIT: delay time before next action
-// ASSERT: set voltage to 'assert' level
-// DEASSERT: set voltage to 'deassert' level
-// DONE: no more commands in the list
-enum CMD_T {DONE=-1, WAIT=0, ASSERT, DEASSERT};
-
-// "CMD" is the command structure itself: type of command,
-//  and if it is a signal, which type of signal
-typedef struct {
-  CMD_T      cmd;
-  SIGNAL_T   signal;
-} CMD;
+bool INVERT=false;        //Pulse direction: INVERT==false ==> Hi = 3v3 or 5v
+int Hi, Lo;		  // voltages for pulses (may be inverted)
 
 /* ISM_Device is the base class descriptor for various specific OOK-PWM
-   emulators.  It contains the command list for the transmitter driver,
-   the variables needed to translate procedure calls into the command list,
-   and the procedures needed to insert the corresponding commands into the list.
+   emulators.  It contains the list of signals for the transmitter driver,
+   the procedure needed to insert signals into the list, and the procedure
+   to play the list of signals 
 */
 class ISM_Device {
 public:
     
   // These are used by the device object procedures
   //   to process the waveform description into a command list
-  CMD      cmdList[640];
+  SIGNAL_T cmdList[640];
   uint16_t listEnd=0;
   String   Device_Name="ISM Device";
   SIGNAL*  signals;
@@ -169,34 +179,27 @@ public:
   };
 
   // Inserts a signal into the commmand list
-  // Assert for "on" time, then deassert for "off" time
-  void insert(SIGNAL_T on, SIGNAL_T off) {
-    cmdList[listEnd++] = {ASSERT,   on};
-    cmdList[listEnd++] = {DEASSERT, off};
-    return;
+  void insert(SIGNAL_T signal) {
+      cmdList[listEnd++] = signal;
+      return;
   };
 
   void playback() {
-    SIGNAL_T this_sig;
+    SIGNAL_T sig;
     for (int i = 0; i<listEnd; i++) {
-      this_sig = cmdList[i].signal;
-      switch (cmdList[i].cmd) {
-        case WAIT:
-	  delayMicroseconds(signals[this_sig].delay_us);
-	  break;
-	case ASSERT:
-	  digitalWrite(TX,Hi);
-	  delayMicroseconds(signals[this_sig].delay_us);
-	  break;
-	case DEASSERT:
-	  digitalWrite(TX,Lo);
-	  delayMicroseconds(signals[this_sig].delay_us);
-	  break;
-	default:
-        case DONE:   // Terminates list but should never be executed
-	  DBG_print(" \tERROR -- invalid command: "); DBG_print( (int) cmdList[i].cmd );
-	  DBG_print( (cmdList[i].cmd == DONE) ? " (DONE)" : "" );
-	  break;
+      sig = cmdList[i];
+      if (sig == NONE) { // Terminates list but should never be executed
+	  DBG_print(" \tERROR -- invalid signal: "); DBG_print( (int) cmdList[i] );
+	  DBG_print( (cmdList[i] == NONE) ? " (NONE)" : "" );
+	  return;
+      };
+      if (signals[sig].up_time > 0) {
+        digitalWrite(TX,Hi);
+	delayMicroseconds(signals[sig].up_time);
+      };
+    if (signals[sig].delay_time > 0) {
+        digitalWrite(TX,Lo);
+	delayMicroseconds(signals[sig].delay_time);
       };
     };
   };  // end playback()
@@ -206,28 +209,14 @@ class AR609 : public ISM_Device {
   public:
 
   // AR609 timing durations
-  // Name, description, spec'd delay in us
   int sigLen = 6;
-/*  "SIGNAL_T" are the possible signal durations..  This list may be
-    extended with additional types in the future, but for the Acurite 609
-    for which this code is the prototype, we use:
-      SIG_PULSE:     the duration of the "pulse" assert voltage level
-      SIG_SYNC:      the duration of the "sync" deassert voltage level
-      SIG_SYNC_GAP:  the duration of the "sync_gap" deassert before data bits
-      SIG_ZERO:      the duration of the deassert gap after a pulse
-                     that signifies a "0" data bit
-      SIG_ONE:       the duration of the deassert gap after a pulse
-                     that signifies a "1" data bit
-      SIG_IM_GAP:    the duration of the deassert for the
-                     inter-message gap, between transmissions
-*/
   SIGNAL AR609_signals[6] = {
-    {SIG_PULSE,    "Pulse",      512},
-    {SIG_SYNC,     "Sync",      8940},
-    {SIG_SYNC_GAP, "Sync-gap",   480},
-    {SIG_ZERO,     "Zero",       990},
-    {SIG_ONE,      "One",       1984},
-    {SIG_IM_GAP,   "IM_gap",    6000}
+    {SIG_SYNC,     "Sync",       512,    480},
+    {SIG_SYNC_GAP, "Sync-gap",   512,   8912},
+    {SIG_ZERO,     "Zero",       512,    976},
+    {SIG_ONE,      "One",        512,   1968},
+    {SIG_IM_GAP,   "IM_gap",     512,  10200},
+    {SIG_PULSE,    "Pulse",      512,    512}   //spare
   };
 
   // Instantiate the device by linking 'signals' to our device timing
@@ -270,28 +259,26 @@ class AR609 : public ISM_Device {
   // This creates the Acurite 609THC waveform description
   void make_wave(uint8_t *msg, uint8_t msgLen) {
     listEnd = 0;
+
     // Preamble
-    insert(SIG_PULSE,SIG_SYNC_GAP);
-    insert(SIG_PULSE,SIG_SYNC_GAP);
-    insert(SIG_PULSE,SIG_SYNC);
+    insert(SIG_SYNC);
+    insert(SIG_SYNC);
+    insert(SIG_SYNC_GAP);
 
     // The data packet
     DBG_print("The msg packet, length="); DBG_print( (int)msgLen);
     DBG_print(", as a series of bits: ");
     for (int i=0; i<msgLen; i++) {
-      insert(SIG_PULSE,
- 	    ( (uint8_t) ((msg[i/8]>>(7-(i%8))) & 0x01 ) ) == 0 ? SIG_ZERO : SIG_ONE );
+      insert( ( (uint8_t) ((msg[i/8]>>(7-(i%8))) & 0x01 ) ) == 0 ? SIG_ZERO : SIG_ONE );
       DBG_print(((msg[i/8]>>(7-(i%8)))&0x01));
     };
     DBG_println();
 
     // Postamble and terminal marker for safety
-    insert(SIG_PULSE, SIG_IM_GAP);
-    cmdList[listEnd].cmd = DONE;
+    insert(SIG_IM_GAP);
+    cmdList[listEnd] = NONE;
   };
 };
-
-bool INVERT=false;          //Pulse direction: true==> Hi = 3v3 or 5v; false==> Hi = 0v
 
 // Create BME object
 Adafruit_BME680 bme; // I2C
@@ -328,9 +315,8 @@ void setup(void) {
 };  // End setup()
 
 void loop(void) {
-  char bitstring[161];
-  uint8_t ID=199, ST=2, HUM;
-  uint16_t TEMP, PRESS, VOC;
+  uint8_t id=199, st=2, hum;
+  uint16_t temp, press, voc;
   AR609 ar;
 
   // Get the readings from the BME688
@@ -340,11 +326,11 @@ void loop(void) {
   }
 
   // Unpack BME readings, repack for ISM transmission, and create the waveform
-  TEMP = (uint16_t) ((bme.temperature+0.05 + BME_TEMP_OFFSET) * 10); // adjust & round
-  HUM = (uint8_t) (bme.humidity+0.5);              // round 
-  PRESS = (uint16_t) (bme.pressure / 10.0);        // hPa * 10
-  VOC = (uint16_t) (bme.gas_resistance/1000.0) ;   //KOhms
-  ar.pack_msg(ID, ST, TEMP, HUM, msg);
+  temp = (uint16_t) ((bme.temperature+0.05 + BME_TEMP_OFFSET) * 10); // adjust & round
+  hum = (uint8_t) (bme.humidity+0.5);              // round 
+  press = (uint16_t) (bme.pressure / 10.0);        // hPa * 10
+  voc = (uint16_t) (bme.gas_resistance/1000.0) ;   //KOhms
+  ar.pack_msg(id, st, temp, hum, msg);
   ar.make_wave(msg,AR609Len);
   
   // Set up for transmission
@@ -365,7 +351,8 @@ void loop(void) {
   // Repeat packet 'REPEATS' times in this transmission
 
   digitalWrite(LED,Hi);
-  for (int j=0; j<REPEATS; j++)  ar.playback();
+  for (int j=0; j<REPEATS;
+       j++)  ar.playback();
 
   // Done transmitting; turn everything off & delete object
   digitalWrite(LED,LOW);

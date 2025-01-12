@@ -38,12 +38,12 @@ The transmitted waveform is a series of up/down voltages (pulses) that turn the 
 
 Transmission format is:
 
-* 2 pulses followed by sync-gap delays;
-* 1 pulse followed by a sync delay; 
+* 2 pulses followed by sync delays;
+* 1 pulse followed by a sync-gap delay; 
 * A 40-bit message of pulses followed by a short or long delay (short = 0, long = 1); and
 * A final pulse follow by interval gap.
 
-The device class function `ISM_Device.make_wave()` shows how the waveform for any OOK/PWM device can be quickly specified for emulation, and `AR609.make_wave()` implements the Acurite 609TXC format described above.
+The function `AR609.make_wave()` shows how the waveform for any OOK/PWM device can be quickly specified for emulation.
 
 Most ISM devices REPEAT the message 2-5 times per transmission to increase the possibility of correct reception (since this is a simplex communication system -- no indication that the information was correctly received).  This AR609 repeats the message 3 times per transmission.
 
