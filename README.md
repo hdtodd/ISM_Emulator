@@ -46,7 +46,7 @@ To implement one of the specific devices:
 
 The `ISM_Emulator` code provides a base class containing structure definitions, variables, and procedures that can be inherited and expanded to emulate specific devices.
 
-The device implementtion program drives a 433MHz transmitter (or local ISM-band transmitter) to send temperature/humidity readings using the protocol specific to the device (Acurite 609TXC or Lacrosse WS7000-20, for example).  See the device file in the `rtl_433` distribution (https://github.com/merbanan/rtl_433) for details about the packet format for the specific device, or examine the prototype code procedure `make_wave`.  The data packet format created here matches the format recognized by `rtl_433`.
+The device implemention program drives a 433MHz transmitter (or local ISM-band transmitter) to send temperature/humidity readings using the protocol specific to the device (Acurite 609TXC or Lacrosse WS7000-20, for example).  See the device file in the `rtl_433` distribution (https://github.com/merbanan/rtl_433) for details about the packet format for the specific device, or examine the prototype code procedure `make_wave`.  The data packet format created here matches the format recognized by `rtl_433`.
 
 The transmitted waveform is a series of up/down voltages (pulses) that turn the ISM transmitter on/off (OOK) followed by timing gaps of various durations.  The duration indicates the type of signal (PWM -- pulse-width modulation).  The message is on-off keying/pulse-width modulation..
 
