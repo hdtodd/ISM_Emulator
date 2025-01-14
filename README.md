@@ -103,9 +103,9 @@ The loop() procedure samples the sensor (BME688), reformats the information into
 ## Creating Other Devices
 To create another ISM device, you'll need to:
 *  Enumerate the types of signals and their delay durations:
-   	     *  Examine the device description in the `rtl_433` distribution under the `/src/devices` directory
-	     *  Examine the timings that can be analyzed by `rtl_433 -A -r <filename>` from the `rtl_433_tests` directory
-	     *  Examine the waveforms that can be visualized from the `http` link that `rtl_433 -A -r` provides.
+	*  Examine the device description in the `rtl_433` distribution under the `/src/devices` directory
+	*  Examine the timings that can be analyzed by `rtl_433 -A -r <filename>` from the `rtl_433_tests` directory
+	*  Examine the waveforms that can be visualized from the `http` link that `rtl_433 -A -r` provides.
 *  Define those signal timings in your device's equivalent of `AR609_signals[]`; 
 *  Write a function to reformat the data as it comes from the sensor object into the format expected by the device: the AR609 code `pack_AR609()` demonstrates how to do that; be sure to set the expected message data length, too;
 *  Write the procedure `.make_wave()` to create the array of signaling commands: again, `AR609()` demonstrates how to do that.
