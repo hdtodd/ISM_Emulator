@@ -258,24 +258,53 @@ public:
     return;
   };
 
-  // Unpack <ID, Status, Temp, Humidity> from a 5-byte AR609 message with 1 checksum byte
-  void unpack_msg(uint8_t *msg, uint8_t &I, uint8_t &S, int16_t &T, uint8_t &H) {
-    if (msg[4] != ( (msg[0]+msg[1]+msg[2]+msg[3])&0xff) ) {
-      cout << "Invalid message packet: Checksum error" << endl;
-      I = 0;
-      S = 0;
-      T = 0;
-      H = 0;
-      } 
-    else {
-      I = msg[0];
-      S = (msg[1]&0xf0) >> 4;
-      // Contortions needed to create signed 16-bit from unsigned 4-bit | 8-bit fields
-      T =  ( (int16_t) ( ( msg[1]&0x0f ) << 12 | ( msg[2]) << 4 ) ) >> 4; 
-      H = msg[3];
+  // Unpack <ID, Temp, Humidity, Pressure> from a 7-byte WS7000 message with
+  //   CheckXOR and CheckSum nibbles
+    void unpack_msg(uint8_t *msg, uint8_t &I, int16_t &T, uint16_t &H,
+		    uint16_t &P) {
+    uint8_t CONST5 = 5;      // Lacrosse CheckSum factor
+    uint8_t TYPE4  = 4;      // Lacrosse WS7000-20 message type
+    uint8_t xcheck = 0;
+    uint16_t checksum = 0;
+    uint8_t sign;
+    // Initialize return values in case of errors
+    I = 0;
+    T = 0;
+    H = 0;
+    P = 0;
+    // Start by reversing bits, so lsb is last in each nibble
+    reflect_nibbles(msg,8);
+    // Now compute the CheckXOR and CheckSum from the
+    //   message frame
+    for (uint8_t j=0;j<6;j++) {
+      xcheck ^= (msg[j]>>4);
+      xcheck ^= (msg[j]&0x0F);
+      checksum += (msg[j]>>4);
+      checksum += (msg[j]&0x0F);
       };
+    if ( (msg[6]>>4) !=  (xcheck&0x0F) ) {
+      cout << "CheckXOR failed: invalid message" << endl;
+      return;
+      };
+    if ((msg[6]& 0x0F) != (uint8_t) ((checksum + xcheck + CONST5) & 0x0F) ) {
+      cout << "CheckSum failed: invalid message" << endl;
+      return;
+      };
+    if ( (msg[0]>>4) != TYPE4) {
+      cout << "Invalid message packet " << (int) (msg[0]>>4) << " not a WS7000-20" << endl;
+      return;
+      };
+    // Capture sign for temperature
+    sign = ( (msg[0] & 0x08) != 0 ) ? 1 : 0;
+    // Get the device id/address
+    I = (uint8_t) (msg[0] & 0x07);
+    T = (int16_t) ( ( msg[1]>>4 ) + ( (msg[1]&0x0f)*10 ) + (msg[2]>>4)*100); 
+    if (sign != 0) T = -T;
+    H = (int16_t) ( ( msg[2]&0x0f ) + ( (msg[3]>>4)*10 ) + (msg[3]&0x0f)*100); 
+    P = (int16_t) ( ( msg[4]>>4 ) + ( (msg[4]&0x0f)*10 ) + (msg[5]>>4)*100)
+      + (msg[5]&0x0F)*100;; 
     return;
-  };
+    };
 
   // Instantiate the device by linking 'signals' to our device timing
   WS7000() {
@@ -326,13 +355,15 @@ int main() {
   
   cout << "\nNow create a wave for 'ws'" << endl;
   ws.pack_msg(id, temp, hum, press, msg);
-  //  cout << "Device ws message in hex: 0x ";
-  //ws.unpack_msg(msg, i, t, h, p);
+  cout << "Device ws message in hex: 0x ";
+  ws.unpack_msg(msg, i, t, h, p);
   for (int j=0; j<7; j++)
     cout << setw(2) << setfill('0') << hex << (int) msg[j] << " ";
   cout << dec << setfill(' ') << endl;
-  //  cout << "Message values: id = " << (int) i << "; status = " << (int) s
-  //     << "; temp = " << (int) t << "; humidity = " << (int) h << endl;
+  cout << "Message values: id = " << (int) i 
+       << "; temp = " << ( (float) t)/10.0 << "C"
+       << "; humidity = " << ( (float) h)/10.0 << "%"
+       << "; pressure = " << ( (float) p) << "hPa" << endl;
   ws.make_wave(msg, msgLen);
 
   cout << "\nPlay back ws" << endl;

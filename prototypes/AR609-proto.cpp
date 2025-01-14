@@ -1,4 +1,4 @@
-/*
+/* g++ -std=c++11
   ISM_proto.cpp: Prototype ISM-device emulator for Arduino
 
   This program models and tests code to describe and generate
