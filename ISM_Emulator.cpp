@@ -1,23 +1,24 @@
 /* g++ -std=c++11
-  ISM_proto.cpp: Prototype ISM-device emulator for Arduino
+  ISM_proto.cpp: Prototype ISM-device transmission protocol emulator for Arduino
 
   This program models and tests code to describe and generate
   waveform specifications on Arduino/Sparkfun devices.  The
   waveform specifications can be adapted to modulate ISM-band
   (e.g, 433MHz) on-off keying and pulse-width modulation (OOK/PWM) 
-  transmitters to emulate ISM-band remote sensing devices.
+  transmitters to generate waveforms compatible with the protocols
+  used by ISM-band remote sensing devices.
 
   The waveform is a series of up/down voltages (cycles) that turn
   the ISM transmitter on/off (OOK) followed by timing gaps of
   various durations.  The duration indicates the type of signal
   (PWM -- pulse-width modulation).
 
-  For the Acurite 609 remote sensor that this code was initially
-  designed to emulate, the cycle begins with a "high" pulse
-  of specific duration (500usec) followed by a "low" gap of
-  specific duration.  The length of the gap indicates the type of
-  information being transmitted (synching signals, or data bits
-  such as 520usec ==> "0", 980usec ==> "1", etc).
+  As a specific example, For the Acurite 609 remote sensor protocol
+  for which this program was originally designed, the cycle begins 
+  with a "high" pulse of specific duration (500usec) followed by a 
+  "low" gap of specific duration.  The length of the gap indicates 
+  the type of information being transmitted (synching signals or 
+  data bits such as 520usec ==> "0", 980usec ==> "1", etc).
 
   Most ISM devices REPEAT the message 2-5 times to increase the
   possibility of correct reception (since this is a simplex
@@ -45,9 +46,9 @@
   environment -- it just generates the waveform description which a subsequent
   code module uses to drive the transmitter voltages.
   
-  The code here provides a base CLASS containing structure definitions,
+  The code here provides a base class containing structure definitions,
   variables, and procedures that can be inherited and expanded to
-  emulate specific devices.
+  create waveforms compatible with specific devices.
 
   The list of commands is generated in .make_wave() by a sequence 
   of procedure calls to insert the appropriate commands for timings
@@ -136,16 +137,17 @@ typedef struct {
   uint16_t   delay_time;  // delay with voltage down before next signal
 } SIGNAL;
 
-/* ISM_Device is the base class descriptor for various specific OOK-PWM
-   emulators.  It contains the command list for the transmitter driver,
-   the variables needed to translate procedure calls into the command list,
-   and the procedures needed to insert the corresponding commands into the list.
+/* ISM_Device is the base class descriptor used to generate waveforms
+   that can be compatible with OOK-PWM transmission protocols of specific
+   devices. It contains the list of signals for the transmitter driver,
+   the variables needed to translate procedure calls into the signals list,
+   and the procedures needed to insert the corresponding signals into the list.
 */
 class ISM_Device {
 public:
     
   // These are used by the device object procedures
-  //   to process the waveform description into a command list
+  //   to process the waveform description into a list of signals
   SIGNAL_T cmdList[640];
   uint16_t listEnd=0;
   string   Device_Name="ISM Device";
@@ -260,7 +262,7 @@ void make_wave(uint8_t *msg, uint8_t msgLen) {
  
 int main() {
   // In the absence of a real sensor provide values needed
-  //   to emulate the Acurite 609TXC
+  //   to be compatible with the Acurite 609TXC protocol
   uint8_t id =     199;
   uint8_t status =   1;
   int16_t temp =    20;
