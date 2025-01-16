@@ -1,19 +1,19 @@
 /* g++ -std=c++11
-  ISM_proto.cpp: Prototype ISM-device emulator for Arduino
+  AR609-proto.cpp: Prototype generation of waveforms compatible with AR609
 
   This program models and tests code to describe and generate
   waveform specifications on Arduino/Sparkfun devices.  The
   waveform specifications can be adapted to modulate ISM-band
   (e.g, 433MHz) on-off keying and pulse-width modulation (OOK/PWM) 
-  transmitters to emulate ISM-band remote sensing devices.
+  transmitters generate waveforms compatible with ISM-band
+  remote sensing devices.
 
   The waveform is a series of up/down voltages (cycles) that turn
   the ISM transmitter on/off (OOK) followed by timing gaps of
   various durations.  The duration indicates the type of signal
   (PWM -- pulse-width modulation).
 
-  For the Acurite 609 remote sensor that this code was initially
-  designed to emulate, the cycle begins with a "high" pulse
+  For the AR609TXC protocol, the cycle begins with a "high" pulse
   of specific duration (500usec) followed by a "low" gap of
   specific duration.  The length of the gap indicates the type of
   information being transmitted (synching signals, or data bits
@@ -47,7 +47,7 @@
   
   The code here provides a base CLASS containing structure definitions,
   variables, and procedures that can be inherited and expanded to
-  emulate specific devices.
+  create waveforms compatible with other specific devices.
 
   The list of commands is generated in .make_wave() by a sequence 
   of procedure calls to insert the appropriate commands for timings
@@ -143,10 +143,11 @@ typedef struct {
   SIGNAL_T   signal;
 } CMD;
 
-/* ISM_Device is the base class descriptor for various specific OOK-PWM
-   emulators.  It contains the command list for the transmitter driver,
-   the variables needed to translate procedure calls into the command list,
-   and the procedures needed to insert the corresponding commands into the list.
+/* ISM_Device is the base class descriptor for creating transmissions
+   compatible with various other specific OOK-PWM devices.  It contains
+   the list of signals for the transmitter driver, the procedure needed
+   to insert signals into the list, and the procedure to play the signals
+   through the transmitter.
 */
 class ISM_Device {
 public:
@@ -284,8 +285,7 @@ void make_wave(uint8_t *msg, uint8_t msgLen) {
 };
  
 int main() {
-  // In the absence of a real sensor provide values needed
-  //   to emulate the Acurite 609TXC
+  // In the absence of a real sensor provide values 
   uint8_t id =     199;
   uint8_t status =   1;
   int16_t temp =    20;

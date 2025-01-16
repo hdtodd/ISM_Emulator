@@ -1,11 +1,12 @@
 /* g++ -std=c++11
-  TX141TH-BV2-proto.cpp: Prototype ISM-device emulator for Arduino
+  TX141TH-BV2-proto.cpp: Generate TX141-compatible waveforms
 
   This program models and tests code to describe and generate
   waveform specifications on Arduino/Sparkfun devices.  The
   waveform specifications can be adapted to modulate ISM-band
   (e.g, 433MHz) on-off keying and pulse-width modulation (OOK/PWM) 
-  transmitters to emulate ISM-band remote sensing devices.
+  transmitters to emulate the transmission protocols used by
+  ISM-band remote sensing devices.
 
   The waveform is a series of up/down voltages (cycles) that turn
   the ISM transmitter on/off (OOK) followed by timing gaps of
@@ -30,10 +31,7 @@
   Most ISM devices REPEAT the message 2-5 times to increase the
   possibility of correct reception (since this is a simplex
   communication system -- no indication that the information
-  was correctly received).  A real TX141TH-BV2 repeats the
-  message 12 times per transmission, but rtl_433 will accept
-  transmissions with as few as 5 repeats, so this emulator
-  repeats 6 times.
+  was correctly received).
 
   When asserting/deasserting voltage to the signal pin, timing
   is critical.  The strategy of this program is to have the
@@ -58,7 +56,8 @@
   
   The code here provides a base class containing structure definitions,
   variables, and procedures that can be inherited and expanded to
-  emulate specific devices, followed by code to implement the TX141.  
+  create waveforms compatible with other specific devices, followed
+  by code to implement the TX141.  
   
   hdtodd@gmail.com, 2025.01.15
 */
@@ -137,10 +136,11 @@ typedef struct {
   uint16_t   delay_time;  // delay with voltage down before next signal
 } SIGNAL;
 
-/* ISM_Device is the base class descriptor for various specific OOK-PWM
-   emulators.  It contains the command list for the transmitter driver,
-   the variables needed to translate procedure calls into the command list,
-   and the procedures needed to insert the corresponding commands into the list.
+/* ISM_Device is the base class descriptor for creating transmissions
+   compatible with various other specific OOK-PWM devices.  It contains
+   the list of signals for the transmitter driver, the procedure needed
+   to insert signals into the list, and the procedure to play the signals
+   through the transmitter.
 */
 class ISM_Device {
 
@@ -333,7 +333,6 @@ uint8_t crc8(uint8_t message[], uint8_t nBytes, uint8_t polynomial, uint8_t init
 
 int main() {
   // In the absence of a real sensor provide values needed
-  //   to emulate the Acurite 609TXC
   uint8_t id =     199;
   uint8_t status =   1;
   int16_t temp =    20;

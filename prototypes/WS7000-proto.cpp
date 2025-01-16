@@ -1,30 +1,30 @@
 /* g++ -std=c++11
-  WS7000_proto.cpp: C++ prototype ISM-device emulator for Arduino
+  WS7000_proto.cpp: Prototype for generating WS7000-compatible waveforms
 
   This program models and tests code to describe and generate
   waveform specifications on Arduino/Sparkfun devices.  The
   waveform specifications can be adapted to modulate ISM-band
   (e.g, 433MHz) on-off keying and pulse-width modulation (OOK/PWM) 
-  transmitters to emulate ISM-band remote sensing devices.
+  transmitters to generate waveforms compatible with ISM-band
+  remote sensing devices.
 
   The waveform is a series of up/down voltages (cycles) that turn
   the ISM transmitter on/off (OOK) followed by timing gaps of
   various durations.  The duration indicates the type of signal
   (PWM -- pulse-width modulation).
 
-  The Lacrosse WS7000-20 remote sensor transmits temperature,
-  humidity, and barometric pressure readings. A transmission frame
-  is 81 bits long (for the -20 model).  A "0" bit is 800us high
-  followed by 400us low and a "1" bit is 400us high followed
-  by 800us low.
+  The WS7000 transmission frame is 81 bits long (for the -20 model).
+  A "0" bit is 800us high followed by 400us low and a "1" bit is
+  400us high followed by 800us low.
 
-  The frame begins with 10 "0" bits followed by 1 "1" bit.
+  The WS7000-20 frame begins with 10 "0" bits followed by 1 "1" bit.
   The data follow that preamble as 14 4-bit nibbles, separated
   from each other by a "1" bit, and each nibble has the
   least-significant bit first.  Soo the data values must have
   their bit patterns reversed as they're inserted into the frame.
   The data are BCD-encoded values representing the decimal digits
-  of each of the three readings.  
+  of each of the three readings.
+  
   Most ISM devices REPEAT the message 2-5 times to increase the
   possibility of correct reception (since this is a simplex
   communication system -- no indication that the information
@@ -128,10 +128,11 @@ typedef struct {
   uint16_t   delay_time;  // delay with voltage down before next signal
 } SIGNAL;
 
-/* ISM_Device is the base class descriptor for various specific OOK-PWM
-   emulators.  It contains the command list for the transmitter driver,
-   the variables needed to translate procedure calls into the command list,
-   and the procedures needed to insert the corresponding commands into the list.
+/* ISM_Device is the base class descriptor for creating transmissions
+   compatible with various other specific OOK-PWM devices.  It contains
+   the list of signals for the transmitter driver, the procedure needed
+   to insert signals into the list, and the procedure to play the signals
+   through the transmitter.
 */
 class ISM_Device {
 
@@ -336,7 +337,6 @@ public:
 
 int main() {
   // In the absence of a real sensor provide values needed
-  //   to emulate the Acurite 609TXC
   uint8_t id =       7;
   int16_t temp =  -254;  // Temp(C) * 10
   uint16_t hum =   479;  // Humidity * 10

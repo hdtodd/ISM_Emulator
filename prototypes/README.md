@@ -1,5 +1,5 @@
 # ISM_Emulator Prototypes
-## Emulate ISM remote sensors without Arduino IDE
+## Generate waveforms compatible with ISM remote sensors without Arduino IDE
 
 These programs model ISM-band remote sensor waveform encoding in C++ and enable testing the waveform generation and playback algorithms without needing an attached Arduinio Uno device or sensors.
 
@@ -7,7 +7,7 @@ These programs model ISM-band remote sensor waveform encoding in C++ and enable 
 
 Simply compile the code of choice with the command `g++ -std=c++11` and execute the resulting `a.out` program.
 
-These programs model how code for other remotee-sensing devices might be developed.
+These programs model how code to generate waveforms compatible with other remote-sensing devices might be developed.
 
 ## Program Structure
 
