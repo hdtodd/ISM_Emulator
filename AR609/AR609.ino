@@ -1,16 +1,17 @@
 /* -*- c++ -*-
-  AR609 Emulator using revised signal timing table
+  AR609.ino: 609TXC transmission protocol emulator 
   
-  ISM_Emulator: Emulate an ISM-band remote sensor on an Arduinio Uno
-  This version specifically emulates an Acurite 609TXC temperature/humidity
-  sensor, but the program provides a class for emulating other devices.
+  Emulate the transmission protocol of an ISM-band remote sensor on an 
+  Arduinio Uno.  This version specifically emulates a protocol 
+  compatible with the Acurite 609TXC temperature/humidity sensor.
 
   This program uses a 433MHz transmitter and Arduino (or similar device
   supported on the Arduino IDE) to send temperature/humidity
-  readings using the Acurite 609TXC protocol.  See the src/device/acurite.c
-  file in the rtl_433 distribution (https://github.com/merbanan/rtl_433)
-  for details about the packet format.  The data packet format created
-  here matches the format recognized by rtl_433 for the Acurite 609TXC.
+  readings in a format compatible with the Acurite 609TXC protocol.  
+  See the src/device/acurite.c file in the rtl_433 distribution 
+  (https://github.com/merbanan/rtl_433) for details about the packet 
+  format.  The data packet format created here matches the format
+  recognized by rtl_433 for the Acurite 609TXC.
 
   The message is pulse-width modulated, on-off-keying at 433.92MHz.
   Waveform format is 2 sync pulses followed by a sync-gap pulse, 
@@ -22,12 +23,12 @@
   various durations.  The duration indicates the type of signal
   (PWM -- pulse-width modulation).
 
-  For the Acurite 609 remote sensor that this code was initially
-  designed to emulate, the cycle begins with a "high" pulse
-  of specific duration (500usec) followed by a "low" gap of
-  specific duration.  The length of the gap indicates the type of
-  information being transmitted (synching signals, or data bits
-  such as 520usec ==> "0", 980usec ==> "1", etc).
+  For the Acurite 609 remote sensor transmission protocol that this
+  program sends, the cycle begins with a "high" pulse of specific 
+  duration (500usec) followed by a "low" gap of specific duration.
+  The length of the gap indicates the type of information being 
+  transmitted (synching signals or data bits such as
+  520usec ==> "0", 980usec ==> "1", etc).
 
   Most ISM devices REPEAT the message 2-5 times to increase the
   possibility of correct reception (since this is a simplex
@@ -60,8 +61,7 @@
   
   The code here provides a base class containing structure definitions,
   variables, and procedures that can be inherited and expanded to
-  emulate specific device and then implements a specific device, the
-  Acurite 609TXC.
+  create transmission protocols compatible with other specific devices.
 
   The BME68x code for reading temp/press/hum/VOC was adapted from
   the Adafruit demo program http://www.adafruit.com/products/3660
@@ -160,10 +160,11 @@ typedef struct {
 bool INVERT=false;        //Pulse direction: INVERT==false ==> Hi = 3v3 or 5v
 int Hi, Lo;		  // voltages for pulses (may be inverted)
 
-/* ISM_Device is the base class descriptor for various specific OOK-PWM
-   emulators.  It contains the list of signals for the transmitter driver,
-   the procedure needed to insert signals into the list, and the procedure
-   to play the list of signals 
+/* ISM_Device is the base class descriptor for creating transmissions
+   compatible with various other specific OOK-PWM devices.  It contains
+   the list of signals for the transmitter driver, the procedure needed
+   to insert signals into the list, and the procedure to play the signals
+   through the transmitter.
 */
 class ISM_Device {
 public:

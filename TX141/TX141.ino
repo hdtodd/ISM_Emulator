@@ -1,10 +1,10 @@
 /* -*- c++ -*-
-  TX141.ino: Emulate an ISM-band Lacrosse TX141TH-BV2 remote sensor on an Arduinio Uno
+  TX141.ino: TX141TH-BV2 transmission protocol emulator
 
   This program uses a 433MHz transmitter and Arduino (or similar device
   supported on the Arduino IDE) to send temperature/humidity
-  readings using the Lacrosse TX141TH protocol.  See the file
-  src/device/lacrosse-tx141x.c in the rtl_433 distribution
+  readings in a format compatible with the Lacrosse TX141TH protocol.  
+  See the file src/device/lacrosse-tx141x.c in the rtl_433 distribution
   (https://github.com/merbanan/rtl_433) for details about the packet format.
   The data packet format created here matches the format recognized by
   rtl_433 for the Lacrosse TX141TH-BV2..
@@ -13,8 +13,8 @@
   Format is 4 pulses followed by a 40-bit message (short = 0, long =1).
   A transmission includes 12 data packets, repeated, followed by an
   inter-message gap.  The device class TX141 function .make_wave() shows
-  how the waveform for any OOK/PWM device can be quickly specified for
-  emulation.
+  how the waveform compatible with the format of any other  OOK/PWM 
+  device can be quickly specified for emulation.
 
   The transmitted waveform is a series of up/down voltages (cycles) that
   turn the ISM transmitter on/off (OOK) followed by timing gaps of
@@ -53,7 +53,7 @@
   
   The code here provides a base class containing structure definitions,
   variables, and procedures that can be inherited and expanded to
-  emulate specific devices.
+  emulate the transmission protocol compatible with otherspecific devices.
 
   The BME68x code for reading temp/press/hum/VOC was adapted from
   the Adafruit demo program http://www.adafruit.com/products/3660
@@ -146,9 +146,10 @@ typedef struct {
 } SIGNAL;
 
 /* ISM_Device is the base class descriptor for various specific OOK-PWM
-   emulators.  It contains the command list for the transmitter driver,
-   the variables needed to translate procedure calls into the command list,
-   and the procedures needed to insert the corresponding commands into the list.
+   transmission protocol emulators.  It contains the signal list for the 
+   transmitter driver, the variables needed to translate procedure calls
+   into the signals list, and the procedures needed to insert the signals
+   into the list.
 */
 class ISM_Device {
 public:

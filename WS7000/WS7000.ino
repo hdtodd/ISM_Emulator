@@ -1,16 +1,26 @@
 /* -*- c++ -*-
-  Lacrosse WS7000-20 temp/humid/press emulator
+  WS7000.ino:  WS7000-20 transmission protocol emulator
   
-  ISM_Emulator: Emulate an ISM-band remote sensor on an Arduinio Uno
-  This version specifically emulates an Acurite 609TXC temperature/humidity
-  sensor, but the program provides a class for emulating other devices.
+  Emulate the transmission protocol of an ISM-band remote sensor on an 
+  Arduinio Uno.  This version specifically emulates a protocol
+  compatible with the Lacrosse WS7000-20 temperature/humidity/pressure
+  sensor.
 
   This program uses a 433MHz transmitter and Arduino (or similar device
   supported on the Arduino IDE) to send temperature/humidity
-  readings using the Acurite 609TXC protocol.  See the src/device/acurite.c
-  file in the rtl_433 distribution (https://github.com/merbanan/rtl_433)
-  for details about the packet format.  The data packet format created
-  here matches the format recognized by rtl_433 for the Acurite 609TXC.
+  readings in a format compatible with the Acurite 609TXC protocol.  
+  See the src/device/acurite.c file in the rtl_433 distribution 
+  (https://github.com/merbanan/rtl_433) for details about the packet 
+  format.  The data packet format created here matches the format
+  recognized by rtl_433 for the Acurite 609TXC.
+
+  This program uses a 433MHz transmitter and Arduino (or similar device
+  supported on the Arduino IDE) to send temperature/humidity
+  readings in a format compatible with the WS7000-20.
+  See the file src/device/lacrosse_tx141x.c in the rtl_433 distribution
+  (https://github.com/merbanan/rtl_433) for details about the packet format.
+  The data packet format created here matches the format recognized
+  by rtl_433 for the Lacrosse WS7000-20.
 
   The Lacrosse WS7000-20 remote sensor transmits temperature,
   humidity, and barometric pressure readings. A transmission frame
@@ -148,11 +158,13 @@ typedef struct {
 bool INVERT=false;        //Pulse direction: INVERT==false ==> Hi = 3v3 or 5v
 int Hi, Lo;		  // voltages for pulses (may be inverted)
 
-/* ISM_Device is the base class descriptor for various specific OOK-PWM
-   emulators.  It contains the list of signals for the transmitter driver,
-   the procedure needed to insert signals into the list, and the procedure
-   to play the list of signals 
+/* ISM_Device is the base class descriptor for creating transmissions
+   compatible with various other specific OOK-PWM devices.  It contains
+   the list of signals for the transmitter driver, the procedure needed
+   to insert signals into the list, and the procedure to play the signals
+   through the transmitter.
 */
+
 class ISM_Device {
 public:
     
