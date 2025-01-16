@@ -3,11 +3,11 @@
 
 This program implements `rtl_433`-recognizable ISM-band (433Mhz in the US) remote sensors on an Arduinio Uno or Sparkfun SAMD21.
 
-`ISM_Emulator` provides the general model and `class` definitions for ISM-band remote sensor emulation.  Its use is demonstrated in the implementation of several specific devices, including the Acurite AR609TXC and Lacrosse TX141TH-BV2 temperature/humidity sensors and the Lacrosse WS7000-20 temperature/humidity/barometric-pressure sensor.  The transmissions from this program are recognized by `rtl_433` as those corresponding devices, and monitoring of the MQTT publications from `rtl_433` can be displayed by `DNT` or monitored with an MQTT client or via `rtl_watch`.
+`ISM_Emulator` provides the general model and `class` definitions for ISM-band remote sensor emulation.  Its use is demonstrated in the implementation of transmission protocols compatible with several specific devices, including the Acurite AR609TXC and Lacrosse TX141TH-BV2 temperature/humidity sensors and the Lacrosse WS7000-20 temperature/humidity/barometric-pressure sensor.  The transmissions from this program are recognized by `rtl_433`, and monitoring of the MQTT publications from `rtl_433` can be displayed by `DNT` or monitored with an MQTT client or via `rtl_watch`.
 
 ## Prototyping Code
 
-In addition to the `.ino` code that implements specific devices, this distribution includes `C++` code that can be used to develop programs to describe the waveform prior to implementing on an Arduino-like device.  The prototypes do not require Arduino-like devices or transmitters but do expedite development of the Arduino code to instantiate the device.
+In addition to the `.ino` code that implements protocols compatible with specific devices, this distribution includes `C++` code that can be used to develop programs to describe the waveform prior to implementing on an Arduino-like device.  The prototypes do not require Arduino-like devices or transmitters but do expedite development of the Arduino code to instantiate the device.
 
 ## Requirements for Device Implementation
 
@@ -44,13 +44,13 @@ To implement one of the specific devices:
 
 ### Device Class
 
-The `ISM_Emulator` code provides a base class containing structure definitions, variables, and procedures that can be inherited and expanded to emulate specific devices.
+The `ISM_Emulator` code provides a base class containing structure definitions, variables, and procedures that can be inherited and expanded to generate transmissions with protocol that are compatible with specific devices.
 
 The device implemention program drives a 433MHz transmitter (or local ISM-band transmitter) to send temperature/humidity readings using the protocol specific to the device (Acurite 609TXC or Lacrosse WS7000-20, for example).  See the device file in the `rtl_433` distribution (https://github.com/merbanan/rtl_433) for details about the packet format for the specific device, or examine the prototype code procedure `make_wave`.  The data packet format created here matches the format recognized by `rtl_433`.
 
 The transmitted waveform is a series of up/down voltages (pulses) that turn the ISM transmitter on/off (OOK) followed by timing gaps of various durations.  The duration indicates the type of signal (PWM -- pulse-width modulation).  The message is on-off keying/pulse-width modulation..
 
-### The Acurite 609TXC
+### The Acurite 609TXC Protocol
 
 Transmission format is:
 
@@ -61,11 +61,11 @@ Transmission format is:
 
 The function `AR609.make_wave()` shows how the waveform for any OOK/PWM device can be quickly specified for emulation.
 
-Most ISM devices REPEAT the message 2-5 times per transmission to increase the possibility of correct reception (since this is a simplex communication system -- no indication that the information was correctly received).  This AR609 repeats the message 3 times per transmission.
+Most ISM devices REPEAT the message 2-5 times per transmission to increase the possibility of correct reception (since this is a simplex communication system -- no indication that the information was correctly received).  This implementation of the protocol repeats the message 3 times per transmission.
 
-The Acurite 609TXC sends only temperature and humidity data.
+The Acurite 609TXC protocol sends only temperature and humidity data.
 
-### The Lacrosse WS7000-20
+### The Lacrosse WS7000-20 Protocol
 
 Transmission format is:
 
@@ -74,9 +74,9 @@ Transmission format is:
 * A 56-bit message transmitted as 12 4-bit nibbles, a CheckXOR nibble, and a CheckSum nibble, all transmitted least-significant-bit first, and with each 4-bit nibble followed by a "1" high-low pulse
 * An inter-message gap pulse.
 
-The WS7000-20 does not appear to repeat messages within a transmission, and this emulator is set to send only one message per transmission.
+This implementation of the WS7000-20 protocol does not repeat messages within a transmission.
 
-The Lacrosse WS7000-20 transmits temperature, humidity, and barometric pressure readings and so uses more of the data available from the BME 68x sensor.
+The Lacrosse WS7000-20 message protocoltransmits temperature, humidity, and barometric pressure readings and so uses more of the data available from the BME 68x sensor.
 
 ## Program Structure
 
@@ -90,7 +90,7 @@ This program was modeled, somewhat, on Joans `pigpiod` (Pi GPIO daemon) code for
 
 ### Setup
 
-Using the specific implementation of the AR609TXC as an example ...
+Using the specific implementation of the AR609TXC transmission protocol as an example ...
 
 The setup() procedure creates the BME688 object and sets its operational parameters.
 
@@ -98,7 +98,7 @@ The BME688 code for reading temp/press/hum/VOC was adapted from the Adafruit dem
 The BME688 temperature reading may need calibration against an external thermometer.  The DEFINEd parameter `BME_TEMP_OFFSET` can be used to perform an adjustment, if needed.
 
 ### Loop
-The loop() procedure samples the sensor (BME688), reformats the information into the 40-bit packet used by the Acurite 609TXC, creates an array of commands to drive the transmitter and delay the appropriate times, and then invokes AR609.playback() to actually drive the transmitter.  It then delays for the length of time defined by `#define DELAY`, in microseconds (must be less than 64K µs!) before repeating the loop.
+The loop() procedure samples the sensor (BME688), reformats the information into the 40-bit data packet of the Acurite 609TXC protocol, creates an array of commands to drive the transmitter and delay the appropriate times, and then invokes AR609.playback() to actually drive the transmitter.  It then delays for the length of time defined by `#define DELAY`, in microseconds (must be less than 64K µs!) before repeating the loop.
 
 ## Creating Other Devices
 To create another ISM device, you'll need to:
@@ -107,7 +107,7 @@ To create another ISM device, you'll need to:
 	*  Examine the timings that can be analyzed by `rtl_433 -A -r <filename>` from the `rtl_433_tests` directory
 	*  Examine the waveforms that can be visualized from the `http` link that `rtl_433 -A -r` provides.
 *  Define those signal timings in your device's equivalent of `AR609_signals[]`; 
-*  Write a function to reformat the data as it comes from the sensor object into the format expected by the device: the AR609 code `pack_AR609()` demonstrates how to do that; be sure to set the expected message data length, too;
+*  Write a function to reformat the data as it comes from the sensor object into the format expected by the device: the AR609 protocol code `pack_AR609()` demonstrates how to do that; be sure to set the expected message data length, too;
 *  Write the procedure `.make_wave()` to create the array of signaling commands: again, `AR609()` demonstrates how to do that.
 
 ## Release History
@@ -116,4 +116,3 @@ To create another ISM device, you'll need to:
 
 ## Author
 Written by David Todd, hdtodd@gmail.com, v1.0.0 2024.12.30.
-
