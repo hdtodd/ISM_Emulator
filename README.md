@@ -26,7 +26,7 @@ Begin by cloning `ISM_Emulator` from http://github.com/hdtodd/ISM_Emulator .
 
 To explore the prototyping code, connect to the `prototypes` directory and compile one of the `.cpp` files with `g++ -std=c++11 <prototype>.cpp`, then execute it with `./a.out`.
 
-To implement one of the specific devices:
+To implement the transmission of sensor data using the protocol of one of the specific devices:
 
 *  Connect your components:
 *  If your BME 68x board and your Arudino-compatible microcontroller both have STEMMA or QWIIC connectors, connect your BME board to your Arudino compatible that way.  If not, you'll use 4 wires to connect your BME to your Arduino-compatible:
