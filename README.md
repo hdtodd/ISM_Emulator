@@ -28,11 +28,15 @@ To explore the prototyping code, connect to the `prototypes` directory and compi
 
 To implement one of the specific devices:
 
-* Connect your components:
-	* Arduino I2C or SPI connection to the BME688 or other sensor
-	* Transmitter to VCC and ground, and data pin to an Arduino GPIO pin (pin 4 in this example)
-	* USB connection from host to microcontroller for power and programming.
+*  Connect your components:
+*  If your BME 68x board and your Arudino-compatible microcontroller both have STEMMA or QWIIC connectors, connect your BME board to your Arudino compatible that way.  If not, you'll use 4 wires to connect your BME to your Arduino-compatible:
+
+	*  Connect the BME Vin to the power supply,  3-5V. After confirming that your BME board has integrated 3.3V-5V level-shifting, use the same voltage that the microcontroller logic uses.. For most Arduinos, that is 5V. For 3.3V logic devices, use 3.3V
+	*  Connect the BME GND to common power/data ground
+	*  Connect the BME SCK breakout pin to the I2C clock SCL pin on your Arduino compatible (see microcontoller pinout diagram)
+	*  Connect the BME SDI breakout pin to the I2C data SDA pin on your Arduino compatible (see microcontoller pinout diagram)
 * If you have a BME688, install the library for it in your IDE; if you're using a different type of sensor, install its library and modify the `ISM_Emulator.ino` code to replace the BME calls with the equivalent for your sensor.
+* Confirm your connection to the BME68x with the `BME680test.ino` example in the Adafruit library, for example.
 * Start the Arduino IDE
   	* Ensure that you have installed the libraries for `<Wire.h>`, `<SPI.h>`, `<Adafruit_Sensor.h>`, and `"Adafruit_BME680.h"` (or other libraries if you are using other sensor communication systems).
 	* Open the `.ino` file from the `ISM_Emulator` directory you'd like to emulate (e.g. `AR609`).
