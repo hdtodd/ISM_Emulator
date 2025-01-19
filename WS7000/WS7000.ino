@@ -1,26 +1,17 @@
 /* -*- c++ -*-
   WS7000.ino:  WS7000-20 transmission protocol emulator
   
-  Emulate the transmission protocol of an ISM-band remote sensor on an 
-  Arduinio Uno.  This version specifically emulates a protocol
-  compatible with the Lacrosse WS7000-20 temperature/humidity/pressure
-  sensor.
-
   This program uses a 433MHz transmitter and Arduino (or similar device
   supported on the Arduino IDE) to send temperature/humidity
   readings in a format compatible with the Acurite 609TXC protocol.  
-  See the src/device/acurite.c file in the rtl_433 distribution 
+  See the src/device/lacrosse_ws7000.c file in the rtl_433 distribution 
   (https://github.com/merbanan/rtl_433) for details about the packet 
   format.  The data packet format created here matches the format
-  recognized by rtl_433 for the Acurite 609TXC.
+  recognized by rtl_433 for the Lacrosse WS7000-20.
 
-  This program uses a 433MHz transmitter and Arduino (or similar device
-  supported on the Arduino IDE) to send temperature/humidity
-  readings in a format compatible with the WS7000-20.
-  See the file src/device/lacrosse_tx141x.c in the rtl_433 distribution
-  (https://github.com/merbanan/rtl_433) for details about the packet format.
-  The data packet format created here matches the format recognized
-  by rtl_433 for the Lacrosse WS7000-20.
+  This program executes on the Arduino Uno R3 but is constrained by the
+  limited 2K memory limit for variables.  Take care in modifying the 
+  program as changes in memory requirements may cause execution errors.
 
   The Lacrosse WS7000-20 remote sensor transmits temperature,
   humidity, and barometric pressure readings. A transmission frame
@@ -35,10 +26,12 @@
   their bit patterns reversed as they're inserted into the frame.
   The data are BCD-encoded values representing the decimal digits
   of each of the three readings.  
+
   Most ISM devices REPEAT the message 2-5 times to increase the
   possibility of correct reception (since this is a simplex
   communication system -- no indication that the information
-  was correctly received).
+  was correctly received).  This program sends just one message
+  per transmission.
 
   When asserting/deasserting voltage to the signal pin, timing
   is critical.  The strategy of this program is to have the
@@ -70,16 +63,24 @@
   hdtodd@gmail.com, 2025.01.13
 */
 
-#define DEBUG           // SET TO #undef to disable execution trace
+//#define DELAY 29520   // Time between messages in ms, less 480ms for overhead on SAMD21
+#define DELAY 4520    // Time between messages in ms, less 480ms for overhead on SAMD21
 
-//#define DELAY 29350   // Time between messages in ms, less 650ms for overhead on SAMD21
-#define DELAY 4350    // Time between messages in ms, less 650ms for overhead on SAMD21
+// Couldn't find the IDE macro that says if serial port is Serial or SerialUSB
+// So try this; if it doesn't work, specify which
+#ifdef ARDUINO_ARCH_SAMD
+#define SERIAL SerialUSB
+#else
+#define SERIAL Serial
+#endif
+
+#define DEBUG         // SET TO #undef to disable execution trace
 
 #ifdef DEBUG
-#define DBG_begin(...)    SerialUSB.begin(__VA_ARGS__);
-#define DBG_print(...)    SerialUSB.print(__VA_ARGS__)
-#define DBG_write(...)    SerialUSB.write(__VA_ARGS__)
-#define DBG_println(...)  SerialUSB.println(__VA_ARGS__)
+#define DBG_begin(...)    SERIAL.begin(__VA_ARGS__);
+#define DBG_print(...)    SERIAL.print(__VA_ARGS__)
+#define DBG_write(...)    SERIAL.write(__VA_ARGS__)
+#define DBG_println(...)  SERIAL.println(__VA_ARGS__)
 #else
 #define DBG_begin(...)
 #define DBG_print(...)
@@ -108,33 +109,17 @@
 #define SEALEVELPRESSURE_HPA (1013.25)    // Standard conversion constant
 #define BME_TEMP_OFFSET (-1.7/1.8)        // Calibration offset in Fahrenheit
 
-// Print in 2-char hex the message in "buf" of length "len"                                                                        
-void hex_print(uint8_t *buf, int len) {
-  static const char CH[] = {'0', '1', '2', '3', '4', '5', '6', '7',
-                            '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
-  for (int i = 0; i<len; i++) {
-    DBG_print(CH[buf[i]>>4]);
-    DBG_print(CH[buf[i]&0x0f]);
-    DBG_print(' ');
-    };
-  return;
-};
-
-/*
-    "SIGNAL_T" enumerates the possible signal types.  Each signal has a
+/* "SIGNAL_T" are the possible signal types.  Each signal has a
     type (index), name, duration of asserted signal high), and duration of
     deasserted signal (low).  Durations are in microseconds.  Either or
-    both duration may be 0, in which case the signal voltge won't be changed.
+    both duration may be 0, in which case the signal voltage won't be changed.
 
-    This list may be extended with additional types in the future, but for
-    the Acurite 609 for which this code is the prototype, we use:
-      SIG_SYNC:      the duration of the "sync" deassert voltage level
-      SIG_SYNC_GAP:  the duration of the "sync_gap" deassert before data bits
-      SIG_ZERO:      the duration of the deassert gap after a pulse
-                     that signifies a "0" data bit
-      SIG_ONE:       the duration of the deassert gap after a pulse
-                     that signifies a "1" data bit
-      SIG_IM_GAP:    the duration of the deassert for the
+    For the Lacrosse WS7000-20:
+      SIG_SYNC:      the durations of the pulse and "sync" deassert voltage level
+      SIG_SYNC_GAP:  the duration of the pulse and"sync_gap" deassert before data bits
+      SIG_ZERO:      the duration of the pulse and deassert gap that signify a "0" data bit
+      SIG_ONE:       the duration of the pulse and deassert gap that signify a "1" data bit
+      SIG_IM_GAP:    the duration of the pulse and deassert gap that signify an
                      inter-message gap, between transmissions
       SIG_PULSE:     the duration of the "pulse" assert voltage level
                      (spare, as a future contingency)
@@ -155,22 +140,18 @@ typedef struct {
   uint16_t   delay_time;  // delay with voltage down before next signal
 } SIGNAL;
 
-bool INVERT=false;        //Pulse direction: INVERT==false ==> Hi = 3v3 or 5v
-int Hi, Lo;		  // voltages for pulses (may be inverted)
-
 /* ISM_Device is the base class descriptor for creating transmissions
    compatible with various other specific OOK-PWM devices.  It contains
    the list of signals for the transmitter driver, the procedure needed
    to insert signals into the list, and the procedure to play the signals
    through the transmitter.
 */
-
 class ISM_Device {
 public:
     
   // These are used by the device object procedures
   //   to process the waveform description into a command list
-  SIGNAL_T cmdList[640];
+  SIGNAL_T cmdList[300];
   uint16_t listEnd=0;
   String   Device_Name="ISM Device";
   SIGNAL*  signals;
@@ -184,24 +165,25 @@ public:
       return;
   };
 
+  // Drive the transmitter voltages per the timings of the signal list
   void playback() {
     SIGNAL_T sig;
     for (int i = 0; i<listEnd; i++) {
       sig = cmdList[i];
       if (sig == NONE) { // Terminates list but should never be executed
-	  DBG_print(" \tERROR -- invalid signal: "); DBG_print( (int) cmdList[i] );
-	  DBG_print( (cmdList[i] == NONE) ? " (NONE)" : "" );
-	  return;
-      };
+	DBG_print(F(" \tERROR -- invalid signal: ")); DBG_print( (int) cmdList[i] );
+	DBG_print( (cmdList[i] == NONE) ? " (NONE)" : "" );
+	return;
+        };
       if (signals[sig].up_time > 0) {
-        digitalWrite(TX,Hi);
+        digitalWrite(TX,HIGH);
 	delayMicroseconds(signals[sig].up_time);
-      };
+        };
     if (signals[sig].delay_time > 0) {
-        digitalWrite(TX,Lo);
+        digitalWrite(TX,LOW);
 	delayMicroseconds(signals[sig].delay_time);
-      };
-    };
+       };
+    };// end loop
   };  // end playback()
 };    // end class ISM_device
     
@@ -210,7 +192,6 @@ class WS7000 : public ISM_Device {
 public:
 
   // WS7000-20 timing durations
-  // Name, description, spec'd delay in us, place for adjusted duration
   int sigLen = 6;
   SIGNAL WS7000_signals[6] = {
     {SIG_SYNC,     "Sync",         0,      0},
@@ -221,15 +202,24 @@ public:
     {SIG_PULSE,    "Pulse",        0,      0}   //spare
   };
 
+  // Instantiate the device by linking 'signals' to our device timing
+  WS7000() {
+    Device_Name = "Lacrosse WS7000-20";
+    signals = WS7000_signals;
+    listEnd = 0;
+    DBG_print("Created device "); DBG_println(Device_Name);
+    };
+
+  // From rtl_433/src/bit_utils.c
   uint8_t reflect4(uint8_t x) {
     x = (x & 0xCC) >> 2 | (x & 0x33) << 2;
     x = (x & 0xAA) >> 1 | (x & 0x55) << 1;
     return x;
-  };
+    };
 
   void reflect_nibbles(uint8_t message[], unsigned num_bytes) {
-      for (uint8_t i = 0; i < num_bytes; ++i) message[i] = reflect4(message[i]);
-  };
+    for (uint8_t i = 0; i < num_bytes; ++i) message[i] = reflect4(message[i]);
+    };
   
   /* Routines to create 56-bit WS7000-20 datagrams from sensor data
      Pack <ID, Temp, Humidity, Press> into an 11-nibble
@@ -272,7 +262,7 @@ public:
     uint8_t sign = (temp<0) ? 1 : 0;
     temp = (temp < 0) ? -temp : temp;
     // Store input binary values as BCD digit nibbles in message frame
-    msg[0] = (uint8_t) (0x40 | (uint8_t)(sign<<3 | id&0x07)); 
+    msg[0] = (uint8_t) (0x40 | ( (uint8_t)(sign<<3 | id&0x07)) & 0x0F); 
     msg[1] = (temp % 10)<<4 | (temp/10) % 10;
     msg[2] = ((temp/100) % 10)<<4 | (hum % 10);   //(no 10ths of RH)
     msg[3] = ((hum/10) % 10)<<4 | (hum/100) % 10;
@@ -290,12 +280,11 @@ public:
     // And, finally, reflect each nibble to be lsb first
     reflect_nibbles(msg,8);
     return;
-  };
+    };
 
   // Unpack <ID, Temp, Humidity, Pressure> from a 7-byte WS7000 message with
   //   CheckXOR and CheckSum nibbles
-    void unpack_msg(uint8_t *msg, uint8_t &I, int16_t &T, uint16_t &H,
-		    uint16_t &P) {
+  void unpack_msg(uint8_t *msg, uint8_t &I, int16_t &T, uint16_t &H, uint16_t &P) {
     uint8_t CONST5 = 5;      // Lacrosse CheckSum factor
     uint8_t TYPE4  = 4;      // Lacrosse WS7000-20 message type
     uint8_t xcheck = 0;
@@ -317,17 +306,17 @@ public:
       checksum += (msg[j]&0x0F);
       };
     if ( (msg[6]>>4) !=  (xcheck&0x0F) ) {
-      DBG_println("CheckXOR failed: invalid message");
+      DBG_println(F("CheckXOR failed: invalid message"));
       return;
       };
     if ((msg[6]& 0x0F) != (uint8_t) ((checksum + xcheck + CONST5) & 0x0F) ) {
-      DBG_println("CheckSum failed: invalid message");
+      DBG_println(F("CheckSum failed: invalid message"));
       return;
       };
     if ( (msg[0]>>4) != TYPE4) {
-      DBG_print("Invalid message packet type ");
+      DBG_print(F("Invalid message packet type "));
       DBG_print( (int) (msg[0]>>4) );
-      DBG_println(" is not a WS7000-20 message");
+      DBG_println(F(" is not a WS7000-20 message"));
       return;
       };
     // Capture sign for temperature
@@ -340,135 +329,60 @@ public:
     P = (int16_t) ( ( msg[4]>>4 ) + ( (msg[4]&0x0f)*10 ) + (msg[5]>>4)*100)
       + (msg[5]&0x0F)*100;; 
     return;
-    };
+    };  // end unpack_msg()
 
-  // Instantiate the device by linking 'signals' to our device timing
-  WS7000() {
-    Device_Name = "Lacrosse WS7000-20";
-    signals = WS7000_signals;
-    listEnd = 0;
-    DBG_print("Created device "); DBG_println(Device_Name);
-  };
-
+  // This creates the WS7000-20 waveform description
   void make_wave(uint8_t *msg, uint8_t msgLen) {
     listEnd = 0;
+    bool first = true;
+
     // Preamble
     for (uint8_t i=0; i<10; i++) insert(SIG_ZERO);
     insert(SIG_ONE);
     
     // The data packet
-    DBG_print("The msg packet, length="); DBG_print( (int)msgLen);
-    DBG_print(", as a series of bits: ");
+    if (first) {
+      DBG_print(F("The msg packet, length=")); DBG_print( (int)msgLen);
+      DBG_print(F(", as a series of bits: "));
+      };
     for (uint8_t i=0; i<msgLen; i++) {
       insert( ( (uint8_t) ((msg[i/8]>>(7-(i%8))) & 0x01 ) ) == 0 ? SIG_ZERO : SIG_ONE );
-      DBG_print(((msg[i/8]>>(7-(i%8)))&0x01));
       if ( ((i+1)%4)==0 ) insert(SIG_ONE);
-    };
-    DBG_println();
-    // Postamble and terminal marker for safety
-    insert(SIG_IM_GAP);
-    cmdList[listEnd] = NONE;
-  };
-};  // End class WS7000 
-
-class AR609 : public ISM_Device {
-  public:
-
-  // AR609 timing durations
-  int sigLen = 6;
-  SIGNAL AR609_signals[6] = {
-    {SIG_SYNC,     "Sync",       512,    480},
-    {SIG_SYNC_GAP, "Sync-gap",   512,   8912},
-    {SIG_ZERO,     "Zero",       512,    976},
-    {SIG_ONE,      "One",        512,   1968},
-    {SIG_IM_GAP,   "IM_gap",     512,  10200},
-    {SIG_PULSE,    "Pulse",      512,    512}   //spare
-  };
-
-  // Instantiate the device by linking 'signals' to our device timing
-  AR609() {
-    Device_Name = "Acurite 609TXC";
-    signals = AR609_signals;
-    DBG_print("Created device "); DBG_println(Device_Name);
-  };
-
-  // Routine to create 40-bit AR609 datagrams
-  // Pack <ID, Status, Temp, Humidity> into a 5-byte AR609 message with 1 checksum byte
-  void pack_msg(uint8_t I, uint8_t S, int16_t T, uint8_t H, uint8_t *msg) {
-    msg[0] = ( I&0xff );
-    msg[1] = ( (S&0x0f)<<4 | (T>>8)&0x0f );
-    msg[2] = ( T&0xff );
-    msg[3] = ( H&0xff ); 
-    msg[4] = ( msg[0] + msg[1] + msg[2] + msg[3] ) & 0xff;
-    return;
-    };  // end pack_msg()
-
-  // unpack_msg <ID, Status, Temp, Humidity> from a 5-byte AR609 message with 1 checksum byte
-  void unpack_msg(uint8_t *msg, uint8_t &I, uint8_t &S, int16_t &T, uint8_t &H) {
-    if (msg[4] != ( (msg[0]+msg[1]+msg[2]+msg[3])&0xff) ) {
-      DBG_println("Invalid message packet: Checksum error");
-      I = 0;
-      S = 0;
-      T = 0;
-      H = 0;
-      } 
-    else {
-      I = msg[0];
-      S = (msg[1]&0xf0) >> 4;
-      // Contortions needed to create signed 16-bit from unsigned 4-bit | 8-bit fields
-      T =  ( (int16_t) ( ( msg[1]&0x0f ) << 12 | ( msg[2]) << 4 ) ) >> 4; 
-      H = msg[3];
+      if (first) DBG_print(((msg[i/8]>>(7-(i%8)))&0x01));
       };
-    return;
-  };  // end unpack_msg()
-
-  // This creates the Acurite 609THC waveform description
-  void make_wave(uint8_t *msg, uint8_t msgLen) {
-    listEnd = 0;
-
-    // Preamble
-    insert(SIG_SYNC);
-    insert(SIG_SYNC);
-    insert(SIG_SYNC_GAP);
-
-    // The data packet
-    DBG_print("The msg packet, length="); DBG_print( (int)msgLen);
-    DBG_print(", as a series of bits: ");
-    for (int i=0; i<msgLen; i++) {
-      insert( ( (uint8_t) ((msg[i/8]>>(7-(i%8))) & 0x01 ) ) == 0 ? SIG_ZERO : SIG_ONE );
-      DBG_print(((msg[i/8]>>(7-(i%8)))&0x01));
-    };
-    DBG_println();
+    if (first) DBG_println();
+    first = false;
 
     // Postamble and terminal marker for safety
     insert(SIG_IM_GAP);
     cmdList[listEnd] = NONE;
-  };
-};
+  }; // End .make_wave()
+};   // End class WS7000 
+
+// Global variables
 
 // Create BME object
+// We use the I2C version but SPI is an option
 Adafruit_BME680 bme; // I2C
 //Adafruit_BME680 bme(BME_CS); // hardware SPI
 //Adafruit_BME680 bme(BME_CS, BME_MOSI, BME_MISO,  BME_SCK);
 
-uint8_t msg[20];	  // should not have messages > 20 bytes = 160 bits
-int temp, hum;		  // temperature & humidity values
-int WS7000Len = 56; 	  // WS7000-20 messages are 56 bits long
+// The WS7000 object as a global
+WS7000  ws;
+// And count the number of messages as they are sent
 int count=0;  	       	  // Count the packets sent
 
 void setup(void) {
   DBG_begin(9600);
   delay(2000);
-  DBG_println("\nAR609 Starting test transmission");
-  if (!INVERT) {Hi = HIGH; Lo = LOW; }
-  else         {Hi = LOW;  Lo = HIGH;};
+  DBG_println(F("\nStarting WS7000-20 test transmission"));
   pinMode(TX, OUTPUT);
   digitalWrite(TX,LOW);
   pinMode(LED, OUTPUT);
   digitalWrite(LED, LOW);
 
   if (!bme.begin()) {
-    DBG_println("Could not find a valid BME680 sensor, check wiring!");
+    DBG_println(F("Could not find a valid BME680 sensor, check wiring!"));
     while (!bme.begin());
   }
 
@@ -478,60 +392,51 @@ void setup(void) {
   bme.setPressureOversampling(BME680_OS_4X);
   bme.setIIRFilterSize(BME680_FILTER_SIZE_3);
   bme.setGasHeater(320, 150); // 320*C for 150 ms
-};  // End setup()
+  };  // End setup()
 
 void loop(void) {
-  uint8_t id =       3;
-  int16_t temp =  -254;  // Temp(C) * 10
-  uint16_t hum =   479;  // Humidity * 10
-  uint16_t press = 9950;  // Pressure in hPa * 10
+  uint8_t msg[7]    =   {0};         // WS7000-20 messages are 7 bytes
+  uint8_t WS7000Len =   56; 	  // WS7000-20 messages are 56 bits long
+  // Initiate with values to compare with .cu8 file
+  // Keep id, but replace others with BME readings
+  uint8_t id        =    5;
+  int16_t temp      = -254;  // Temp(C) * 10
+  uint16_t hum      =  479;  // Humidity * 10
+  uint16_t press    = 9950;  // Pressure in hPa * 10
   uint16_t voc;
-  uint8_t i;
-  uint16_t p, h;
-  int16_t t;
-
-  // WS7000-20 messages are 7 bytes
-  uint8_t msg[7] = {0};
-  uint8_t msgLen = 56;
-  WS7000  ws;
 
   // Get the readings from the BME688
   if (! bme.performReading()) {
-    DBG_println("BME688 failed to perform reading :-(");
+    DBG_println(F("BME688 failed to perform reading :-("));
     return;
   }
 
   // Unpack BME readings, repack for ISM transmission, and create the waveform
   temp = (uint16_t) ((bme.temperature+0.05 + BME_TEMP_OFFSET) * 10); // adjust & round
-  hum = (uint16_t) ((bme.humidity+0.5)*10.0);              // round 
-  press = (uint16_t) (bme.pressure / 10.0);        // hPa * 10
-  voc = (uint16_t) (bme.gas_resistance/1000.0) ;   //KOhms
+  hum = (uint16_t) ((bme.humidity+0.5)*10.0);                        // round 
+  press = (uint16_t) (bme.pressure / 10.0);                          // hPa * 10
+  voc = (uint16_t) (bme.gas_resistance/1000.0) ;                     //KOhms
   ws.pack_msg(id, temp, hum, press, msg);
   ws.make_wave(msg,WS7000Len);
   
   // Set up for transmission
-  digitalWrite(TX,Lo);
+  digitalWrite(TX,LOW);
 
-  DBG_print("Transmit msg "); DBG_print(++count); 
-  DBG_print("\tT=");          DBG_print(bme.temperature);     DBG_print("˚C");
-  DBG_print(", H=");          DBG_print(bme.humidity);        DBG_print("%");
-  DBG_print(", P=");          DBG_print(bme.pressure/100.0);  DBG_print("hPa");
-  DBG_print(", V=");          DBG_print(bme.gas_resistance/1000.0);
-  DBG_print(": 0x ");
-  hex_print(msg,7);
+  DBG_print(F("Transmit msg ")); DBG_print(++count); 
+  DBG_print(F("\tT="));          DBG_print(bme.temperature);     DBG_print(F("˚C"));
+  DBG_print(F(", H="));          DBG_print(bme.humidity);        DBG_print(F("%"));
+  DBG_print(F(", P="));          DBG_print(bme.pressure/100.0);  DBG_print(F("hPa"));
+  DBG_print(F(", V="));          DBG_print(bme.gas_resistance/1000.0);
+  DBG_print(F(": 0x "));
+  for (uint8_t j=0; j<7; j++) { DBG_print(msg[j],HEX); DBG_print(' ');};
   DBG_println();
 
-  // Messages must be sent as a continual stream, with no
-  //   program breaks once transmission begins
-  // So the data-transmit loop is a single loop 
-  // Repeat packet 'REPEATS' times in this transmission
-
-  digitalWrite(LED,Hi);
-  for (int j=0; j<REPEATS;j++)  ws.playback();
+  // Messages are sent as a continual stream
+  digitalWrite(LED,HIGH);
+  ws.playback();
 
   // Done transmitting; turn everything off & delete object
   digitalWrite(LED,LOW);
   digitalWrite(TX,LOW);
-  ws.~WS7000();
   delay(DELAY);
 }; // end loop()
