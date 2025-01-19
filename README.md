@@ -26,7 +26,7 @@ Begin by cloning `ISM_Emulator` from http://github.com/hdtodd/ISM_Emulator .
 
 To explore the prototyping code, connect to the `prototypes` directory and compile one of the `.cpp` files with `g++ -std=c++11 <prototype>.cpp`, then execute it with `./a.out`.
 
-To implement one of the specific devices:
+To implement the transmission of sensor data using the protocol of one of the specific devices:
 
 * Connect your components:
 	* Arduino I2C or SPI connection to the BME688 or other sensor
