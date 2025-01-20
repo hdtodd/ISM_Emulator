@@ -1,9 +1,9 @@
 # ISM_Emulator
-## Emulate ISM-Band Remote Sensors
+## Emulate ISM-Band Remote Sensor Communication Protocols
 
-This program implements `rtl_433`-recognizable ISM-band (433Mhz in the US) remote sensors on an Arduino Uno or Sparkfun SAMD21.
+These programs implement communication protocols for ISM-band (433MHz in the US) messages that are recognized by`rtl_433` as from its library of remote sensors.  The programs have been tested on an Arduino Uno R4, Sparkfun SAMD21, and Raspberry Pi Pico 2.
 
-`ISM_Emulator` provides the general model and `class` definitions for ISM-band remote sensor emulation.  Its use is demonstrated in the implementation of transmission protocols compatible with several specific devices, including the Acurite AR609TXC and Lacrosse TX141TH-BV2 temperature/humidity sensors and the Lacrosse WS7000-20 temperature/humidity/barometric-pressure sensor.  The transmissions from this program are recognized by `rtl_433`, and monitoring of the MQTT publications from `rtl_433` can be displayed by `DNT` or monitored with an MQTT client or via `rtl_watch`.
+`ISM_Emulator` provides the general model and `class` definitions for ISM-band remote sensor emulation.  Its use is demonstrated in the implementation of communication protocols compatible with several specific devices, including the Acurite AR609TXC and Lacrosse TX141TH-BV2 temperature/humidity sensors and the Lacrosse WS7000-20 temperature/humidity/barometric-pressure sensor.  The transmissions from this program are recognized by `rtl_433`, and monitoring of the MQTT publications from `rtl_433` can be displayed by `DNT` or monitored with an MQTT client or via `rtl_watch`.
 
 ## Prototyping Code
 
@@ -29,12 +29,13 @@ To explore the prototyping code, connect to the `prototypes` directory and compi
 To implement the transmission of sensor data using the protocol of one of the specific devices:
 
 *  Connect your components:
-*  If your BME 68x board and your Arudino-compatible microcontroller both have STEMMA or QWIIC connectors, connect your BME board to your Arudino compatible that way.  If not, you'll use 4 wires to connect your BME to your Arduino-compatible:
+*  You can use either I2C or SPIO to connect to a BME 68x board.  The program expects to use I2C.  If your BME 68x board and your Arudino-compatible microcontroller both have STEMMA or QWIIC connectors, connect your BME board to your Arudino compatible that way.  If not, you'll use 4 wires to connect your BME to your Arduino-compatible:
 
 	*  Connect the BME Vin to the power supply,  3-5V. After confirming that your BME board has integrated 3.3V-5V level-shifting, use the same voltage that the microcontroller logic uses.. For most Arduinos, that is 5V. For 3.3V logic devices, use 3.3V
 	*  Connect the BME GND to common power/data ground
 	*  Connect the BME SCK breakout pin to the I2C clock SCL pin on your Arduino compatible (see microcontoller pinout diagram)
 	*  Connect the BME SDI breakout pin to the I2C data SDA pin on your Arduino compatible (see microcontoller pinout diagram)
+	*  On the Pico 2, connect the BME SCK and SDI pins to the Pico 2 SCL and SDA pins numbered 6 and 7; attempts to use other Pico I2C0 or I2C1 pins were unsucessful.  Use GPIO pin 3 (pin numbered 5) for the 433MHz transmitter data line.
 * If you have a BME688, install the library for it in your IDE; if you're using a different type of sensor, install its library and modify the `ISM_Emulator.ino` code to replace the BME calls with the equivalent for your sensor.
 * Confirm your connection to the BME68x with the `BME680test.ino` example in the Adafruit library, for example.
 * Start the Arduino IDE
