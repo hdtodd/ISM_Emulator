@@ -173,7 +173,7 @@ public:
     for (int i = 0; i<listEnd; i++) {
       sig = cmdList[i];
       if (sig == NONE) { // Terminates list but should never be executed
-	DBG_print(F" \tERROR -- invalid signal: ")); DBG_print( (int) cmdList[i] );
+	DBG_print(F(" \tERROR -- invalid signal: ")); DBG_print( (int) cmdList[i] );
 	DBG_print( (cmdList[i] == NONE) ? " (NONE)" : "" );
 	return;
         };

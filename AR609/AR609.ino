@@ -332,7 +332,7 @@ void loop(void) {
   DBG_print(F("Transmit msg ")); DBG_print(++count); 
   DBG_print(F("\tT="));          DBG_print(temp/10.0);           DBG_print(F("˚C"));
   DBG_print(F(", H="));          DBG_print(hum);                 DBG_print(F("%"));
-  DBG_print(F(", P="));          DBG_print(press/100.0);         DBG_print(F("hPa"));
+  DBG_print(F(", P="));          DBG_print(press/10.0);         DBG_print(F("hPa"));
   DBG_print(F(", V="));          DBG_print(voc);
   DBG_print(F(": 0x "));
   for (uint8_t j=0; j<5; j++) { DBG_print(msg[j],HEX); DBG_print(' ');};
