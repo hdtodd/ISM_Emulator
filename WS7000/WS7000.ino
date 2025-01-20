@@ -63,8 +63,8 @@
   hdtodd@gmail.com, 2025.01.13
 */
 
-//#define DELAY 29520   // Time between messages in ms, less 480ms for overhead on SAMD21
-#define DELAY 4520    // Time between messages in ms, less 480ms for overhead on SAMD21
+//#define DELAY 29165   // Time between messages in ms, less 835ms for overhead on SAMD21
+#define DELAY 4165  // Time between messages in ms, less 835ms for overhead on SAMD21
 
 // Couldn't find the IDE macro that says if serial port is Serial or SerialUSB
 // So try this; if it doesn't work, specify which
@@ -204,10 +204,8 @@ public:
 
   // Instantiate the device by linking 'signals' to our device timing
   WS7000() {
-    Device_Name = "Lacrosse WS7000-20";
+    Device_Name = F("Lacrosse WS7000-20");
     signals = WS7000_signals;
-    listEnd = 0;
-    DBG_print("Created device "); DBG_println(Device_Name);
     };
 
   // From rtl_433/src/bit_utils.c

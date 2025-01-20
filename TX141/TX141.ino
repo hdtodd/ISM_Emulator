@@ -177,16 +177,16 @@ public:
 	DBG_print( (cmdList[i] == NONE) ? " (NONE)" : "" );
 	return;
         };
-    if (signals[sig].up_time > 0) {
-      digitalWrite(TX,HIGH);
-      delayMicroseconds(signals[sig].up_time);
-      };
-    if (signals[sig].delay_time > 0) {
-      digitalWrite(TX,LOW);
-      delayMicroseconds(signals[sig].delay_time);
-      };
-    };// end loop
-  };  // end playback()
+      if (signals[sig].up_time > 0) {
+        digitalWrite(TX,HIGH);
+        delayMicroseconds(signals[sig].up_time);
+        };
+      if (signals[sig].delay_time > 0) {
+        digitalWrite(TX,LOW);
+        delayMicroseconds(signals[sig].delay_time);
+        };
+      };// end loop
+    };  // end playback()
 };    // end class ISM_device   
 
 class TX141TH : public ISM_Device {
