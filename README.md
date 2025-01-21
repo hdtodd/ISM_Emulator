@@ -100,7 +100,7 @@ The Lacrosse WS7000-20 message protocol transmits temperature, humidity, and bar
 
 ## Program Structure
 
-Take care if you modify these `.ino` programs to use the `F()` macro around any text strings you introduce or edit.  The programs are RAM memory-bound on the Arduino Uno R3, so it was necessary to use the `F()` macro to store text strings in flash memory.  If you introduce strings without `F()`, the IDE pulls in the Serial libary on SAMD architectures and can't find the USB serial port.
+Take care if you modify these `.ino` programs to use the `F()` macro around any text strings you introduce or edit.  The programs are RAM memory-bound on the Arduino Uno R3, so it was necessary to use the `F()` macro to store text strings in flash memory.  If you introduce strings without `F()`, the IDE pulls in the Serial library on SAMD architectures and can't find the USB serial port.
 
 The generalized device class includes procedures for creating the list of signals to be sent as one transmission (`insert()`) and for playing the signal list through the transmitter (`playback()`).
 
