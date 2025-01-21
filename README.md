@@ -1,7 +1,7 @@
 # ISM_Emulator
 ## Emulate ISM-Band Remote Sensor Communication Protocols
 
-These programs implement communication protocols for ISM-band (433MHz in the US) messages that are recognized by`rtl_433` from its library of remote sensors.  The programs have been tested on an Arduino Uno R4, Sparkfun SAMD21, and Raspberry Pi Pico 2.
+These programs implement communication protocols for ISM-band (433MHz in the US) messages that are recognized by`rtl_433` from its library of remote sensors.  The programs have been tested on an Arduino Uno R3, Sparkfun SAMD21, and Raspberry Pi Pico 2.
 
 `ISM_Emulator` provides the general model and `class` definitions for ISM-band remote sensor emulation.  Its use is demonstrated in the implementation of communication protocols compatible with several specific devices, including the Acurite AR609TXC and Lacrosse TX141TH-BV2 temperature/humidity sensors and the Lacrosse WS7000-20 temperature/humidity/barometric-pressure sensor.  The transmissions from this program are recognized by `rtl_433`, and monitoring of the MQTT publications from `rtl_433` can be displayed by `DNT` or monitored with an MQTT client or via `rtl_watch`.
 
