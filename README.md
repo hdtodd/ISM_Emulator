@@ -107,7 +107,7 @@ The generalized device class includes procedures for creating the list of signal
 The critical elements for creating the transmission for a specific device are defined in the `class <device>` section:
 * the signal timings (pulse and gap durations), which are specified in the table `<device>_signals[6]`;
 * the `<device>` instantiation code, that links this specific signal table into the general device class;
-* the `<device>.pack_msg()` procedure that creates the formatted message array from the raw data; that procedure may neeed associated procedures for creating checksum bytes, reflecting messages, etc.;
+* the `<device>.pack_msg()` procedure that creates the formatted message array from the raw data; that procedure may need associated procedures for creating checksum bytes, reflecting messages, etc.;
 * the `<device.make_wave()` procedure that creates the transmission packet that includes the preamble, message data, and postamble, with as many repetitions as are needed to be recognized by `rtl_433`.
 
 When asserting/deasserting voltage to the signal pin, timing is critical.  The strategy of this program is to have the "playback" -- the setting of voltages at specific times to convey information -- be as simple as possible to minimize computer processing delays in the signal-setting timings.  So the program generates a "waveform" as a series of program commands in an array to tell when to assert/deassert voltages and to delay the specified times to communicate information.  Those very simple commands in the array represent the waveform.
