@@ -82,7 +82,7 @@ Transmission format is:
 
 This implementation of the WS7000-20 protocol does not repeat messages within a transmission.
 
-The Lacrosse WS7000-20 message protocoltransmits temperature, humidity, and barometric pressure readings and so uses more of the data available from the BME 68x sensor.
+The Lacrosse WS7000-20 message protocol transmits temperature, humidity, and barometric pressure readings and so uses more of the data available from the BME 68x sensor.
 
 ## Program Structure
 
