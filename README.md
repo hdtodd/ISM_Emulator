@@ -71,6 +71,20 @@ Most ISM devices REPEAT the message 2-5 times per transmission to increase the p
 
 The Acurite 609TXC protocol sends only temperature and humidity data.
 
+
+### The Lacrosse TX141TH-BV2 Protocol
+
+Transmission format is:
+
+* A preamble of 4 SYNC pulses+gaps;
+* A 40-bit message of 0/1 pulses+gaps
+* A postamble of 2 SYNC pulses+gaps followed by a an Inter-Message gap
+The preamble and message are repeated 12 times by the TX141 but only 6 times by this program (`rtl_433` needs at least 5 repetitions to recognize the transmission as valid).
+
+The function `TX141.make_wave()` shows how the waveform for any OOK/PWM device can be quickly specified for emulation.
+
+The Lacrosse TX141THC protocol sends only temperature and humidity data.
+
 ### The Lacrosse WS7000-20 Protocol
 
 Transmission format is:
@@ -87,6 +101,14 @@ The Lacrosse WS7000-20 message protocol transmits temperature, humidity, and bar
 ## Program Structure
 
 Take care if you modify these `.ino` programs to use the `F()` macro around any text strings you introduce or edit.  The programs are RAM memory-bound on the Arduino Uno R3, so it was necessary to use the `F()` macro to store text strings in flash memory.  If you introduce strings without `F()`, the IDE pulls in the Serial libary on SAMD architectures and can't find the USB serial port.
+
+The generalized device class includes procedures for creating the list of signals to be sent as one transmission (`insert()`) and for playing the signal list through the transmitter (`playback()`).
+
+The critical elements for creating the transmission for a specific device are defined in the `class <device>` section:
+* the signal timings (pulse and gap durations), which are specified in the table `<device>_signals[6]`;
+* the `<device>` instantiation code, that links this specific signal table into the general device class;
+* the `<device>.pack_msg()` procedure that creates the formatted message array from the raw data; that procedure may neeed associated procedures for creating checksum bytes, reflecting messages, etc.;
+* the `<device.make_wave()` procedure that creates the transmission packet that includes the preamble, message data, and postamble, with as many repetitions as are needed to be recognized by `rtl_433`.
 
 When asserting/deasserting voltage to the signal pin, timing is critical.  The strategy of this program is to have the "playback" -- the setting of voltages at specific times to convey information -- be as simple as possible to minimize computer processing delays in the signal-setting timings.  So the program generates a "waveform" as a series of program commands in an array to tell when to assert/deassert voltages and to delay the specified times to communicate information.  Those very simple commands in the array represent the waveform.
 
@@ -110,13 +132,14 @@ The loop() procedure samples the sensor (BME688), reformats the information into
 
 ## Creating Other Devices
 To create another ISM device, you'll need to:
-*  Enumerate the types of signals and their delay durations:
+*  Enumerate the types of signals and their pulse and gap durations:
 	*  Examine the device description in the `rtl_433` distribution under the `/src/devices` directory
-	*  Examine the timings that can be analyzed by `rtl_433 -A -r <filename>` from the `rtl_433_tests` directory
-	*  Examine the waveforms that can be visualized from the `http` link that `rtl_433 -A -r` provides.
+	*  Examine the `.cu8` timings that can be analyzed by `rtl_433 -A -r <filename>` from the `rtl_433_tests` directory
+	*  Examine the waveforms that can be visualized from the triq `http` link that `rtl_433 -A -r` provides.
+*  Note, particularly, whether the message or transmission is reflected (in whole or by nibbles or by bytes), inverted (ditto), and the type of checksum needed to create a valid packet
 *  Define those signal timings in your device's equivalent of `AR609_signals[]`; 
-*  Write a function to reformat the data as it comes from the sensor object into the format expected by the device: the AR609 protocol code `pack_AR609()` demonstrates how to do that; be sure to set the expected message data length, too;
-*  Write the procedure `.make_wave()` to create the array of signaling commands: again, `AR609()` demonstrates how to do that.
+*  Write a function to reformat the data as it comes from the sensor object into the format expected by the device, including checksums, reflections, and inversions: the AR609 protocol code `AR609.pack_msg()` demonstrates how to do that; be sure to set the expected message data length, too;
+*  Write the procedure `.make_wave()` to create the array of signaling commands: again, `AR609.make_wave()` demonstrates how to do that.
 
 ## Release History
 
