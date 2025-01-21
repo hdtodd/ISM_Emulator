@@ -98,10 +98,11 @@
 // 433MHz transmitter settings
 #ifdef PICO_RP2350
 #define TX           3      // transmit data line connected to Pico 2 GPIO 3
+#define LED LED_BUILTIN     // LED active on GPIO 25 when transmitting
 #else
 #define TX           4      // transmit data line connected to SAMD21 GPIO 4
-#endif
 #define LED         13      // LED active on GPIO 13 when transmitting
+#endif
 #define REPEATS      1      // Number of times to repeat packet in one transmission
 
 // BME688 settings for Adafruit I2C connection
