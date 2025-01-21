@@ -29,7 +29,7 @@ To explore the prototyping code, connect to the `prototypes` directory and compi
 To implement the transmission of sensor data using the protocol of one of the specific devices:
 
 *  Connect your components:
-*  You can use either I2C or SPIO to connect to a BME 68x board.  The program expects to use I2C.  If your BME 68x board and your Arudino-compatible microcontroller both have STEMMA or QWIIC connectors, connect your BME board to your Arudino compatible that way.  If not, you'll use 4 wires to connect your BME to your Arduino-compatible:
+*  You can use either I2C or SPIO to connect to a BME 68x board.  The program defaults to I2C.  If your BME 68x board and your Arudino-compatible microcontroller both have STEMMA or QWIIC connectors, connect your BME board to your Arudino compatible that way.  If not, you'll use 4 wires to connect your BME to your Arduino-compatible:
 
 	*  Connect the BME Vin to the power supply,  3-5V. After confirming that your BME board has integrated 3.3V-5V level-shifting, use the same voltage that the microcontroller logic uses.. For most Arduinos, that is 5V. For 3.3V logic devices, use 3.3V
 	*  Connect the BME GND to common power/data ground
