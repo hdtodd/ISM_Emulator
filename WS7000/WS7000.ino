@@ -103,7 +103,7 @@
 #define TX  4  // transmit data line connected to SAMD21 GPIO 4
 #define LED 13 // LED active on GPIO 13 when transmitting
 #endif
-#define REPEATS 1 // Number of times to repeat packet in one transmission
+#define REPEATS 3 // Number of times to repeat packet in one transmission
 
 // BME688 settings for Adafruit I2C connection
 #define BME_SCK              13
