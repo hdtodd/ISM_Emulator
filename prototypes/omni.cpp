@@ -215,12 +215,12 @@ class omni : public ISM_Device {
     // Name, description, pulse in μs, gap in μs
     int sigLen             = 6;
     SIGNAL omni_signals[6] = {
-            {SIG_SYNC, "Sync", 600, 600},
-            {SIG_SYNC_GAP, "Sync-gap", 200, 800},
-            {SIG_ZERO, "Zero", 200, 400},
-            {SIG_ONE, "One", 400, 200},
-            {SIG_IM_GAP, "IM_gap", 0, 2000},
-            {SIG_PULSE, "Pulse", 0, 0} // spare
+            {SIG_SYNC,     "Sync",     600,  600},
+            {SIG_SYNC_GAP, "Sync-gap", 200,  800},
+            {SIG_ZERO,     "Zero",     400,  200},
+            {SIG_ONE,      "One",      200,  400},
+            {SIG_IM_GAP,   "IM_gap",     0, 1250},
+            {SIG_PULSE,    "Pulse",      0,    0} // spare
     };
 
     // Instantiate the device by linking 'signals' to our device timing
