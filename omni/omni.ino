@@ -1,6 +1,6 @@
 /* -*- mode: c++ ; indent-tabs-mode: nil; tab-width: 4; c-basic-offset: 4; -*-
 
-  omni.ino
+  omni.ino V1.1
 
   This program uses a 433MHz transmitter and Arduino (or similar device
   supported on the Arduino IDE) to send temperature/humidity
@@ -98,6 +98,9 @@
 #include <Adafruit_Sensor.h>
 #include <SPI.h>
 #include <Wire.h>
+
+// CRC-8 'init' value
+#define initCRC 0xaa
 
 // 433MHz transmitter settings
 #ifdef PICO_RP2350
@@ -288,7 +291,7 @@ class omni : public ISM_Device {
              g: sensor 2 humidity reading (e.g., outdoor), %RH as integer
              p: barometric pressure * 10, in hPa, 0..1628.4 hPa
              v: (VCC-2.5)*100, in volts, 2.50..5.06 volts
-             c: CRC8 checksum of bytes 1..9, initial remainder 0x00,
+             c: CRC8 checksum of bytes 1..9, initial remainder 0xaa,
                     divisor polynomial 0x97, no reflections or inversions
     */
     void pack_msg(uint8_t fmt, uint8_t id, int16_t iTemp, int16_t oTemp,
@@ -304,7 +307,7 @@ class omni : public ISM_Device {
         msg[6] = (press >> 8) & 0xff;
         msg[7] = press & 0xff;
         msg[8] = volts & 0xff;
-        msg[9] = crc8(msg, 9, 0x00);
+        msg[9] = crc8(msg, 9, initCRC);
         return;
     };
 
@@ -313,7 +316,7 @@ class omni : public ISM_Device {
             int16_t &oTemp, uint8_t &iHum, uint8_t &oHum, uint16_t &press,
             uint8_t &volts)
     {
-        if (msg[9] != crc8(msg, 9, 0x00)) {
+        if (msg[9] != crc8(msg, 9, initCRC)) {
             DBG_println(
                     F("Attempt unpack of invalid message packet: CRC8 checksum error"));
             fmt   = 0;

@@ -1,5 +1,5 @@
 /* g++ -std=c++11
-  omni.cpp: Prototype for "omni" sensor  protocol emulator for Arduino
+  omni.cpp V1.1: Prototype for "omni" sensor  protocol emulator for Arduino
 
   This program models and tests code to describe and generate
   waveform specifications on Arduino/Sparkfun devices.  The
@@ -76,6 +76,9 @@ using namespace std;
 */
 
 #define REPEAT 4
+
+// CRC-8 'init' value
+#define initCRC 0xaa
 
 uint8_t CRC8POLY       = 0x97;
 uint8_t CRC8Table[256] = {
@@ -257,7 +260,7 @@ class omni : public ISM_Device {
              g: sensor 2 humidity reading (e.g., outdoor), %RH as integer
              p: barometric pressure * 10, in hPa, 0..1628.4 hPa
              v: (VCC-2.5)*100, in volts, 2.50..5.06 volts
-             c: CRC8 checksum of bytes 1..9, initial remainder 0x00,
+             c: CRC8 checksum of bytes 1..9, initial remainder 0xaa,
                     divisor polynomial 0x97, no reflections or inversions
     */
     void pack_msg(uint8_t type, uint8_t id, int16_t iTemp, int16_t oTemp,
@@ -272,7 +275,7 @@ class omni : public ISM_Device {
         msg[6] = (press >> 8) & 0xff;
         msg[7] = press & 0xff;
         msg[8] = volts & 0xff;
-        msg[9] = crc8(msg, 9, 0x00);
+        msg[9] = crc8(msg, 9, initCRC);
         return;
     };
 
@@ -280,7 +283,7 @@ class omni : public ISM_Device {
     void unpack_msg(uint8_t msg[], uint8_t &type, uint8_t &id, int16_t &iTemp, int16_t &oTemp,
             uint8_t &iHum, uint8_t &oHum, uint16_t &press, uint8_t &volts)
     {
-        if (msg[9] != crc8(msg, 9, 0x00)) {
+        if (msg[9] != crc8(msg, 9, initCRC)) {
             cout << "Invalid message packet: Checksum error" << endl;
             type  = 0;
             id    = 0;

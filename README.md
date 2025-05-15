@@ -1,4 +1,4 @@
-# ISM_Emulator
+# ISM_Emulator V1.1
 ## Emulate ISM-Band Remote Sensor Communication Protocols
 
 These programs implement communication protocols for ISM-band (433MHz in the US) messages that are recognized by`rtl_433` from its library of remote sensors.  The programs have been tested on an Arduino Uno R3, Sparkfun SAMD21, and Raspberry Pi Pico 2.
@@ -143,7 +143,11 @@ To create another ISM device, you'll need to:
 
 ## Release History
 
-*  V1.0: First operational version, 2024.12.29; added WS7000 2025.01.14.
+| Version | Changes |
+|---------|---------|
+| V1.1    | 2025.05.14 Changed CRC-8 'init' from 0x00 to 0xaa, following a recommendation by Christian Zuckschwerdt, reviewing Williams' recommendation not to use 0x00 as 'init', and modeling reliability of error detection in the event of block error insertions [ISMErrDetect](https://github.com/hdtodd/ISMErrDetect).|
+| V1.0    | First operational version, 2024.12.29; added WS7000 2025.01.14 |
+
 
 ## Author
 Written by David Todd, hdtodd@gmail.com, v1.0.0 2024.12.30.
