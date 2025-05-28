@@ -71,18 +71,18 @@
 // Couldn't find the IDE macro that says if serial port is Serial or SerialUSB
 // So try this; if it doesn't work, specify which
 #ifdef ARDUINO_ARCH_SAMD
-#define SERIAL SerialUSB
+#define MYSERIAL SerialUSB
 #else
-#define SERIAL Serial
+#define MYSERIAL Serial
 #endif
 
 #define DEBUG // SET TO #undef to disable execution trace
 
 #ifdef DEBUG
-#define DBG_begin(...)   SERIAL.begin(__VA_ARGS__);
-#define DBG_print(...)   SERIAL.print(__VA_ARGS__)
-#define DBG_write(...)   SERIAL.write(__VA_ARGS__)
-#define DBG_println(...) SERIAL.println(__VA_ARGS__)
+#define DBG_begin(...)   MYSERIAL.begin(__VA_ARGS__);
+#define DBG_print(...)   MYSERIAL.print(__VA_ARGS__)
+#define DBG_write(...)   MYSERIAL.write(__VA_ARGS__)
+#define DBG_println(...) MYSERIAL.println(__VA_ARGS__)
 #else
 #define DBG_begin(...)
 #define DBG_print(...)
@@ -259,8 +259,12 @@ class TX141TH : public ISM_Device {
     }; // end pack_msg()
 
     // unpack_msg <ID, Status, Temp, Humidity> from a 5-byte AR609 message with 1 checksum byte
-    void unpack_msg(uint8_t *msg, uint8_t &I, uint8_t &S, int16_t &T, uint8_t &H)
+    void unpack_msg(uint8_t *msg, uint8_t I, uint8_t S, int16_t T, uint8_t H)
     {
+        // Re-invert the bits
+        for (int i = 0; i < 5; i++)
+            msg[i] = ~msg[i];
+	// Validate with the checksum
         if (msg[4] != lfsr_digest8_reflect(msg, 4, 0x31, 0xf4)) {
             DBG_println(F("Invalid message packet: Checksum error"));
             I = 0;
@@ -373,31 +377,31 @@ void loop(void)
     voc   = (uint16_t)(bme.gas_resistance / 1000.0);                     // KOhms
 
     // Test with readings from .cu8 files from lacrosse/04/
-    /*
+    
     id = 67;
     st = 0;
     temp = 93;
     hum = 73;
-    */
+    
     tx.pack_msg(id, st, temp, hum, msg);
     tx.make_wave(msg, TX141THLen);
 
     // Set up for transmission
     digitalWrite(TX, LOW);
 
-    DBG_print(F("Transmit msg "));
+    tx.unpack_msg(msg, id, st, temp, hum);
+    DBG_print(F("Transmitted msg "));
     DBG_print(++count);
-    DBG_print(F("\tT="));
+    DBG_print(F("\tID="));
+    DBG_print(id);
+    DBG_print(F(", status="));
+    DBG_print(st, HEX);
+    DBG_print(F(", Temp="));
     DBG_print(temp / 10.0);
     DBG_print(F("˚C"));
-    DBG_print(F(", H="));
+    DBG_print(F(", hum="));
     DBG_print(hum);
     DBG_print(F("%"));
-    DBG_print(F(", P="));
-    DBG_print(bme.pressure / 100.0);
-    DBG_print(F("hPa"));
-    DBG_print(F(", V="));
-    DBG_print(bme.gas_resistance / 1000.0);
     DBG_print(F(": 0x "));
     for (uint8_t j = 0; j < 5; j++) {
         DBG_print(msg[j], HEX);
